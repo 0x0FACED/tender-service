@@ -1,8 +1,9 @@
 package repos
 
 import (
+	"context"
+
 	"github.com/0x0FACED/tender-service/internal/app/domain/models"
-	"github.com/labstack/echo/v4"
 )
 
 // Username Уникальный slug пользователя.
@@ -50,25 +51,25 @@ type BidVersion = int32
 // BidService предоставляет методы для работы с предложениями.
 type BidService interface {
 	// Получение списка ваших предложений
-	GetUserBids(ctx echo.Context, params GetUserBidsParams) error
+	GetUserBids(ctx context.Context, params GetUserBidsParams) error
 	// Создание нового предложения
-	CreateBid(ctx echo.Context, params CreateBidParams) error
+	CreateBid(ctx context.Context, params CreateBidParams) error
 	// Редактирование параметров предложения
-	EditBid(ctx echo.Context, bidId BidId, params EditBidParams) (models.Bid, error)
+	EditBid(ctx context.Context, bidId BidId, username Username, params EditBidParams) (models.Bid, error)
 	// Отправка отзыва по предложению
-	SubmitBidFeedback(ctx echo.Context, bidId BidId, params SubmitBidFeedbackParams) error
+	SubmitBidFeedback(ctx context.Context, bidId BidId, params SubmitBidFeedbackParams) error
 	// Откат версии предложения
-	RollbackBid(ctx echo.Context, bidId BidId, version int32, params RollbackBidParams) error
+	RollbackBid(ctx context.Context, bidId BidId, version int32, params RollbackBidParams) error
 	// Получение текущего статуса предложения
-	GetBidStatus(ctx echo.Context, bidId BidId, params GetBidStatusParams) error
+	GetBidStatus(ctx context.Context, bidId BidId, params GetBidStatusParams) error
 	// Изменение статуса предложения
-	UpdateBidStatus(ctx echo.Context, bidId BidId, params UpdateBidStatusParams) error
+	UpdateBidStatus(ctx context.Context, bidId BidId, params UpdateBidStatusParams) error
 	// Отправка решения по предложению
-	SubmitBidDecision(ctx echo.Context, bidId BidId, params SubmitBidDecisionParams) error
-	GetBidsForTender(ctx echo.Context, tenderId TenderId, params GetBidsForTenderParams) error
+	SubmitBidDecision(ctx context.Context, bidId BidId, params SubmitBidDecisionParams) error
+	GetBidsForTender(ctx context.Context, tenderId TenderId, params GetBidsForTenderParams) error
 	// Просмотр отзывов на прошлые предложения
 	// (GET /bids/{tenderId}/reviews)
-	GetBidReviews(ctx echo.Context, tenderId TenderId, params GetBidReviewsParams) error
+	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) error
 }
 
 // CreateBidParams определяет параметры для создания нового предложения.
