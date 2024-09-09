@@ -33,7 +33,7 @@ func (s *server) GetTenders(ctx echo.Context) error {
 
 	// валидируем запрос, делаем запросик в бд, получаем список
 	// TODO: изменить возвращаемое значение
-	err = s.tenderHandler.GetTenders(ctx, params)
+	err = s.tenderHandler.GetTenders(context.TODO(), params)
 	return err
 }
 
@@ -58,7 +58,7 @@ func (s *server) GetUserTenders(ctx echo.Context) error {
 
 	// Получаем списко тендеров, но перед этим
 	// валидируем данные, проверяем доступ юзера к тендерам
-	err = s.tenderHandler.GetUserTenders(ctx, params)
+	err = s.tenderHandler.GetUserTenders(context.TODO(), params)
 	return err
 }
 
@@ -145,7 +145,7 @@ func (s *server) RollbackTender(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	err = s.tenderHandler.RollbackTender(ctx, tenderId, version, params)
+	err = s.tenderHandler.RollbackTender(context.TODO(), tenderId, version, params)
 	return err
 }
 
@@ -165,7 +165,7 @@ func (s *server) GetTenderStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	err = s.tenderHandler.GetTenderStatus(ctx, tenderId, params)
+	err = s.tenderHandler.GetTenderStatus(context.TODO(), tenderId, params)
 	return err
 }
 
@@ -190,6 +190,6 @@ func (s *server) UpdateTenderStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	err = s.tenderHandler.UpdateTenderStatus(ctx, tenderId, params)
+	err = s.tenderHandler.UpdateTenderStatus(context.TODO(), tenderId, params)
 	return err
 }
