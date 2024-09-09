@@ -24,11 +24,14 @@ func (s *server) GetTenders(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
 	}
 
+	// Construction, Delivery, Manufacture
 	err = runtime.BindQueryParameter("form", true, false, "service_type", ctx.QueryParams(), &params.ServiceType)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter service_type: %s", err))
 	}
 
+	// валидируем запрос, делаем запросик в бд, получаем список
+	// TODO: изменить возвращаемое значение
 	err = s.tenderHandler.GetTenders(ctx, params)
 	return err
 }
@@ -52,6 +55,8 @@ func (s *server) GetUserTenders(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
+	// Получаем списко тендеров, но перед этим
+	// валидируем данные, проверяем доступ юзера к тендерам
 	err = s.tenderHandler.GetUserTenders(ctx, params)
 	return err
 }
