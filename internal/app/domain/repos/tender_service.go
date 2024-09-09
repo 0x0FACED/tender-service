@@ -1,6 +1,6 @@
 package repos
 
-import "github.com/labstack/echo/v4"
+import "context"
 
 // OrganizationId Уникальный идентификатор организации, присвоенный сервером.
 type OrganizationId = string
@@ -26,32 +26,32 @@ type TenderVersion = int32
 // TenderService предоставляет методы для работы с тендерами.
 type TenderService interface {
 	// Получение списка предложений для тендера
-	GetBidsForTender(ctx echo.Context, tenderId TenderId, params GetBidsForTenderParams) error
+	GetBidsForTender(ctx context.Context, tenderId TenderId, params GetBidsForTenderParams) error
 	// Просмотр отзывов на прошлые предложения
-	GetBidReviews(ctx echo.Context, tenderId TenderId, params GetBidReviewsParams) error
+	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) error
 	// Получение списка тендеров
-	GetTenders(ctx echo.Context, params GetTendersParams) error
+	GetTenders(ctx context.Context, params GetTendersParams) error
 	// Получение тендеров пользователя
-	GetUserTenders(ctx echo.Context, params GetUserTendersParams) error
+	GetUserTenders(ctx context.Context, params GetUserTendersParams) error
 	// Создание нового тендера
-	CreateTender(ctx echo.Context, params CreateTenderParams) error
+	CreateTender(ctx context.Context, params CreateTenderParams) error
 	// Редактирование тендера
-	EditTender(ctx echo.Context, tenderId TenderId, params EditTenderParams) error
+	EditTender(ctx context.Context, tenderId TenderId, username Username, params EditTenderParams) error
 	// Откат версии тендера
-	RollbackTender(ctx echo.Context, tenderId TenderId, version int32, params RollbackTenderParams) error
+	RollbackTender(ctx context.Context, tenderId TenderId, version int32, params RollbackTenderParams) error
 	// Получение текущего статуса тендера
-	GetTenderStatus(ctx echo.Context, tenderId TenderId, params GetTenderStatusParams) error
+	GetTenderStatus(ctx context.Context, tenderId TenderId, params GetTenderStatusParams) error
 	// Изменение статуса тендера
-	UpdateTenderStatus(ctx echo.Context, tenderId TenderId, params UpdateTenderStatusParams) error
+	UpdateTenderStatus(ctx context.Context, tenderId TenderId, params UpdateTenderStatusParams) error
 }
 
 type CreateTenderParams struct {
-	Name            TenderName        `json:"name"`
-	Description     TenderDescription `json:"description"`
-	ServiceType     TenderServiceType `json:"serviceType"`
-	Status          TenderStatus      `json:"status"`
-	OrganizationID  OrganizationId    `json:"organizationId"`
-	CreatorUsername Username          `json:"creatorUsername"`
+	Name            *TenderName        `json:"name"`
+	Description     *TenderDescription `json:"description"`
+	ServiceType     *TenderServiceType `json:"serviceType"`
+	Status          *TenderStatus      `json:"status"`
+	OrganizationID  *OrganizationId    `json:"organizationId"`
+	CreatorUsername *Username          `json:"creatorUsername"`
 }
 
 // GetTendersParams defines parameters for GetTenders.
@@ -84,7 +84,9 @@ type GetUserTendersParams struct {
 
 // EditTenderParams defines parameters for EditTender.
 type EditTenderParams struct {
-	Username Username `form:"username" json:"username"`
+	Name        *TenderName        `form:"name" json:"name"`
+	Description *TenderDescription `form:"description" json:"description"`
+	ServiceType *TenderServiceType `form:"serviceType" json:"serviceType"`
 }
 
 // RollbackTenderParams defines parameters for RollbackTender.
