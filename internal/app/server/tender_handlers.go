@@ -64,7 +64,29 @@ func (s *server) GetUserTenders(ctx echo.Context) error {
 func (s *server) CreateTender(ctx echo.Context) error {
 	var err error
 
-	err = s.tenderHandler.CreateTender(ctx, repos.CreateTenderParams{})
+	var requestBody CreateTenderJSONRequestBody
+
+	if err = ctx.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid request format: %s", err))
+	}
+
+	params := repos.CreateTenderParams{
+		Name:            &requestBody.Name,
+		Description:     &requestBody.Description,
+		ServiceType:     &requestBody.ServiceType,
+		Status:          &requestBody.Status,
+		OrganizationID:  &requestBody.OrganizationId,
+		CreatorUsername: &requestBody.CreatorUsername,
+	}
+
+	// Валидация здесь + потом создание записи в бд, если все гуд
+	// Return структура бида + err
+	err = s.tenderHandler.CreateTender(context.TODO(), params)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to create bid: %s", err))
+	}
+
+	err = s.tenderHandler.CreateTender(context.TODO(), repos.CreateTenderParams{})
 	return err
 }
 
