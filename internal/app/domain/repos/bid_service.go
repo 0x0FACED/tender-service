@@ -1,6 +1,9 @@
 package repos
 
-import "github.com/labstack/echo/v4"
+import (
+	"github.com/0x0FACED/tender-service/internal/app/domain/models"
+	"github.com/labstack/echo/v4"
+)
 
 // Username Уникальный slug пользователя.
 type Username = string
@@ -51,7 +54,7 @@ type BidService interface {
 	// Создание нового предложения
 	CreateBid(ctx echo.Context, params CreateBidParams) error
 	// Редактирование параметров предложения
-	EditBid(ctx echo.Context, bidId BidId, params EditBidParams) error
+	EditBid(ctx echo.Context, bidId BidId, params EditBidParams) (models.Bid, error)
 	// Отправка отзыва по предложению
 	SubmitBidFeedback(ctx echo.Context, bidId BidId, params SubmitBidFeedbackParams) error
 	// Откат версии предложения
@@ -70,12 +73,12 @@ type BidService interface {
 
 // CreateBidParams определяет параметры для создания нового предложения.
 type CreateBidParams struct {
-	Name            BidName        `json:"name"`
-	Description     BidDescription `json:"description"`
-	Status          BidStatus      `json:"status"`
-	TenderID        TenderId       `json:"tenderId"`
-	OrganizationID  OrganizationId `json:"organizationId"`
-	CreatorUsername Username       `json:"creatorUsername"`
+	Name            *BidName        `json:"name"`
+	Description     *BidDescription `json:"description"`
+	Status          *BidStatus      `json:"status"`
+	TenderID        *TenderId       `json:"tenderId"`
+	OrganizationID  *OrganizationId `json:"organizationId"`
+	CreatorUsername *Username       `json:"creatorUsername"`
 }
 
 // BidReview Отзыв о предложении
@@ -105,7 +108,8 @@ type GetUserBidsParams struct {
 
 // EditBidParams defines parameters for EditBid.
 type EditBidParams struct {
-	Username Username `form:"username" json:"username"`
+	Name        *BidName        `json:"name,omitempty"`
+	Description *BidDescription `json:"description,omitempty"`
 }
 
 // SubmitBidFeedbackParams defines parameters for SubmitBidFeedback.
