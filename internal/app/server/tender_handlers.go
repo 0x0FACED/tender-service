@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -99,14 +100,25 @@ func (s *server) EditTender(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tenderId: %s", err))
 	}
 
-	var params repos.EditTenderParams
-
-	err = runtime.BindQueryParameter("form", true, true, "username", ctx.QueryParams(), &params.Username)
+	var username repos.Username
+	err = runtime.BindQueryParameter("form", true, false, "username", ctx.QueryParams(), &username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	err = s.tenderHandler.EditTender(ctx, tenderId, params)
+	var requestBody EditTenderJSONRequestBody
+
+	if err = ctx.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid request format: %s", err))
+	}
+
+	params := repos.EditTenderParams{
+		Name:        requestBody.Name,
+		Description: requestBody.Description,
+		ServiceType: requestBody.ServiceType,
+	}
+
+	err = s.tenderHandler.EditTender(context.TODO(), tenderId, username, params)
 	return err
 }
 
