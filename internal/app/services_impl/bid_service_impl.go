@@ -2,10 +2,12 @@ package servicesimpl
 
 import (
 	"github.com/0x0FACED/tender-service/internal/app/database"
+	"github.com/0x0FACED/tender-service/internal/app/domain/models"
 	"github.com/0x0FACED/tender-service/internal/app/domain/repos"
 	"github.com/labstack/echo/v4"
 )
 
+// Всякие валидации здесь будут и вызовы БД
 type BidServiceImpl struct {
 	db database.BidRepository
 }
@@ -24,7 +26,7 @@ func (b *BidServiceImpl) CreateBid(ctx echo.Context, params repos.CreateBidParam
 	panic("impl me")
 }
 
-func (b *BidServiceImpl) EditBid(ctx echo.Context, bidId repos.BidId, params repos.EditBidParams) error {
+func (b *BidServiceImpl) EditBid(ctx echo.Context, bidId repos.BidId, params repos.EditBidParams) (models.Bid, error) {
 	panic("impl me")
 }
 
