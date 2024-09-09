@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -38,21 +39,33 @@ func (s *server) GetUserBids(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	err = s.bidHandler.GetUserBids(ctx, params)
+	err = s.bidHandler.GetUserBids(context.TODO(), params)
 	return err
 }
 
 func (s *server) CreateBid(ctx echo.Context) error {
 	var err error
-	var params repos.CreateBidParams
+	var requestBody CreateBidJSONRequestBody
 
-	if err = ctx.Bind(&params); err != nil {
+	if err = ctx.Bind(&requestBody); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid request format: %s", err))
 	}
 
+	params := repos.CreateBidParams{
+		Name:            &requestBody.Name,
+		Description:     &requestBody.Description,
+		Status:          &requestBody.Status,
+		TenderID:        &requestBody.TenderId,
+		OrganizationID:  &requestBody.OrganizationId,
+		CreatorUsername: &requestBody.CreatorUsername,
+	}
+
+	// здесь надо создавать еще контекст с таймаутом, например
+	// TODO: добавить контекст
+
 	// Валидация здесь + потом создание записи в бд, если все гуд
 	// Return структура бида + err
-	err = s.bidHandler.CreateBid(ctx, params)
+	err = s.bidHandler.CreateBid(context.TODO(), params)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to create bid: %s", err))
 	}
@@ -93,7 +106,7 @@ func (s *server) EditBid(ctx echo.Context) error {
 	}
 
 	// Вызов метода для редактирования предложения
-	bid, err := s.bidHandler.EditBid(ctx, bidId, params)
+	bid, err := s.bidHandler.EditBid(context.TODO(), bidId, username, params)
 	if err != nil {
 		return err
 	}
@@ -129,7 +142,7 @@ func (s *server) SubmitBidFeedback(ctx echo.Context) error {
 	// проверяем, является ли username автором бида с bidId,
 	// либо он состоит в орагнизации, которая является автором бида
 	// возвращаем бид (? зачем?)
-	err = s.bidHandler.SubmitBidFeedback(ctx, bidId, params)
+	err = s.bidHandler.SubmitBidFeedback(context.TODO(), bidId, params)
 	return err
 }
 
@@ -160,7 +173,7 @@ func (s *server) RollbackBid(ctx echo.Context) error {
 
 	// валидиурем доступ юзера к версионированию
 	// делаем откат и вовзращаем bid
-	err = s.bidHandler.RollbackBid(ctx, bidId, version, params)
+	err = s.bidHandler.RollbackBid(context.TODO(), bidId, version, params)
 	return err
 }
 
@@ -182,7 +195,7 @@ func (s *server) GetBidStatus(ctx echo.Context) error {
 	}
 
 	// Валидируем пользователя и возвращаем статус
-	err = s.bidHandler.GetBidStatus(ctx, bidId, params)
+	err = s.bidHandler.GetBidStatus(context.TODO(), bidId, params)
 	return err
 }
 
@@ -210,7 +223,7 @@ func (s *server) UpdateBidStatus(ctx echo.Context) error {
 
 	// здесь будем валидировать пользователя и статус
 	// далее изменяем статус
-	err = s.bidHandler.UpdateBidStatus(ctx, bidId, params)
+	err = s.bidHandler.UpdateBidStatus(context.TODO(), bidId, params)
 	return err
 }
 
@@ -237,7 +250,7 @@ func (s *server) SubmitBidDecision(ctx echo.Context) error {
 
 	// валидируем данные (доступ юзера + решение, а то вдруг передадим в решении, например, "нельзя(")
 	// возвращаем бид и ошибку
-	err = s.bidHandler.SubmitBidDecision(ctx, bidId, params)
+	err = s.bidHandler.SubmitBidDecision(context.TODO(), bidId, params)
 	return err
 }
 
@@ -269,7 +282,7 @@ func (s *server) GetBidsForTender(ctx echo.Context) error {
 	}
 
 	// Список бидов, отсортированных по АЛФАВИТУ (какому алфавиту? по какому полю сортировать?)
-	err = s.bidHandler.GetBidsForTender(ctx, tenderId, params)
+	err = s.bidHandler.GetBidsForTender(context.TODO(), tenderId, params)
 	return err
 }
 
@@ -306,6 +319,6 @@ func (s *server) GetBidReviews(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
 	}
 
-	err = s.bidHandler.GetBidReviews(ctx, tenderId, params)
+	err = s.bidHandler.GetBidReviews(context.TODO(), tenderId, params)
 	return err
 }
