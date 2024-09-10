@@ -47,7 +47,7 @@ func Start() error {
 		return err
 	}
 
-	db := postgres.New()
+	db := postgres.New(cfg.Database)
 
 	bidService := servicesimpl.NewBidService(db)
 	tenderService := servicesimpl.NewTenderService(db)
