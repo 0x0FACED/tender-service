@@ -50,26 +50,16 @@ type BidVersion = int32
 
 // BidService предоставляет методы для работы с предложениями.
 type BidService interface {
-	// Получение списка ваших предложений
-	GetUserBids(ctx context.Context, params GetUserBidsParams) error
-	// Создание нового предложения
-	CreateBid(ctx context.Context, params CreateBidParams) error
-	// Редактирование параметров предложения
+	CreateBid(ctx context.Context, params CreateBidParams) (models.Bid, error)
+	GetUserBids(ctx context.Context, params GetUserBidsParams) ([]*models.Bid, error)
+	GetBidsForTender(ctx context.Context, tenderId TenderId, params GetBidsForTenderParams) ([]*models.Bid, error)
+	GetBidStatus(ctx context.Context, bidId BidId, params GetBidStatusParams) (BidStatus, error)
+	UpdateBidStatus(ctx context.Context, bidId BidId, params UpdateBidStatusParams) (models.Bid, error)
 	EditBid(ctx context.Context, bidId BidId, username Username, params EditBidParams) (models.Bid, error)
-	// Отправка отзыва по предложению
-	SubmitBidFeedback(ctx context.Context, bidId BidId, params SubmitBidFeedbackParams) error
-	// Откат версии предложения
-	RollbackBid(ctx context.Context, bidId BidId, version int32, params RollbackBidParams) error
-	// Получение текущего статуса предложения
-	GetBidStatus(ctx context.Context, bidId BidId, params GetBidStatusParams) error
-	// Изменение статуса предложения
-	UpdateBidStatus(ctx context.Context, bidId BidId, params UpdateBidStatusParams) error
-	// Отправка решения по предложению
-	SubmitBidDecision(ctx context.Context, bidId BidId, params SubmitBidDecisionParams) error
-	GetBidsForTender(ctx context.Context, tenderId TenderId, params GetBidsForTenderParams) error
-	// Просмотр отзывов на прошлые предложения
-	// (GET /bids/{tenderId}/reviews)
-	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) error
+	SubmitBidDecision(ctx context.Context, bidId BidId, params SubmitBidDecisionParams) (models.Bid, error)
+	SubmitBidFeedback(ctx context.Context, bidId BidId, params SubmitBidFeedbackParams) (models.Bid, error)
+	RollbackBid(ctx context.Context, bidId BidId, version int32, params RollbackBidParams) (models.Bid, error)
+	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) (models.BidReview, error)
 }
 
 // CreateBidParams определяет параметры для создания нового предложения.
