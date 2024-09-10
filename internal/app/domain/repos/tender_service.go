@@ -1,6 +1,10 @@
 package repos
 
-import "context"
+import (
+	"context"
+
+	"github.com/0x0FACED/tender-service/internal/app/domain/models"
+)
 
 // OrganizationId Уникальный идентификатор организации, присвоенный сервером.
 type OrganizationId = string
@@ -25,24 +29,20 @@ type TenderVersion = int32
 
 // TenderService предоставляет методы для работы с тендерами.
 type TenderService interface {
-	// Получение списка предложений для тендера
-	GetBidsForTender(ctx context.Context, tenderId TenderId, params GetBidsForTenderParams) error
-	// Просмотр отзывов на прошлые предложения
-	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) error
 	// Получение списка тендеров
-	GetTenders(ctx context.Context, params GetTendersParams) error
+	GetTenders(ctx context.Context, params GetTendersParams) ([]*models.Tender, error)
 	// Получение тендеров пользователя
-	GetUserTenders(ctx context.Context, params GetUserTendersParams) error
+	GetUserTenders(ctx context.Context, params GetUserTendersParams) ([]*models.Tender, error)
 	// Создание нового тендера
-	CreateTender(ctx context.Context, params CreateTenderParams) error
+	CreateTender(ctx context.Context, params CreateTenderParams) (models.Tender, error)
 	// Редактирование тендера
-	EditTender(ctx context.Context, tenderId TenderId, username Username, params EditTenderParams) error
+	EditTender(ctx context.Context, tenderId TenderId, username Username, params EditTenderParams) (models.Tender, error)
 	// Откат версии тендера
-	RollbackTender(ctx context.Context, tenderId TenderId, version int32, params RollbackTenderParams) error
+	RollbackTender(ctx context.Context, tenderId TenderId, version int32, params RollbackTenderParams) (models.Tender, error)
 	// Получение текущего статуса тендера
-	GetTenderStatus(ctx context.Context, tenderId TenderId, params GetTenderStatusParams) error
+	GetTenderStatus(ctx context.Context, tenderId TenderId, params GetTenderStatusParams) (TenderStatus, error)
 	// Изменение статуса тендера
-	UpdateTenderStatus(ctx context.Context, tenderId TenderId, params UpdateTenderStatusParams) error
+	UpdateTenderStatus(ctx context.Context, tenderId TenderId, params UpdateTenderStatusParams) (models.Tender, error)
 }
 
 type CreateTenderParams struct {
