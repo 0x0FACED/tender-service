@@ -52,12 +52,6 @@ type BidId = string
 // BidName Полное название предложения
 type BidName = string
 
-// BidReviewDescription Описание предложения
-type BidReviewDescription = string
-
-// BidReviewId Уникальный идентификатор отзыва, присвоенный сервером.
-type BidReviewId = string
-
 // BidStatus Статус предложения
 type BidStatus string
 
