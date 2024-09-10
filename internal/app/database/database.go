@@ -6,9 +6,3 @@ type Database interface {
 	BidRepository
 	TenderRepository
 }
-
-type BidRepository interface {
-}
-
-type TenderRepository interface {
-}
