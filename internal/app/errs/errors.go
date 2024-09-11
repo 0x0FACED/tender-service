@@ -28,4 +28,8 @@ var (
 	ErrExceededLength         = errors.New("exceeded length")
 	ErrEmpty                  = errors.New("empty")
 	ErrInvalidStatusCreateBid = errors.New("must be Created only")
+
+	ErrUnknownStatus   = errors.New("unknown status")
+	ErrUnknownDecision = errors.New("unknown decision")
+	ErrAlreadyExistts  = errors.New("already exists")
 )
