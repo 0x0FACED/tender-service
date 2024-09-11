@@ -1,6 +1,4 @@
--- Active: 1715775522634@@127.0.0.1@5432@tender_service_db
--- Из README.md
-CREATE TABLE employee (
+CREATE TABLE IF NOT EXISTS employee (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     first_name VARCHAR(50),
@@ -9,12 +7,13 @@ CREATE TABLE employee (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Из README.md
-CREATE TYPE organization_type AS ENUM ('IE', 'LLC', 'JSC');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'organization_type') THEN
+        CREATE TYPE organization_type AS ENUM ('IE', 'LLC', 'JSC');
+    END IF;
+END $$;
 
--- Из README.md
--- Изменено: PRIMARY KEY сделан UUID, ибо так было в openapi.yml
-CREATE TABLE organization (
+CREATE TABLE IF NOT EXISTS organization (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -23,31 +22,43 @@ CREATE TABLE organization (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Из README.md
-CREATE TABLE organization_responsible (
+CREATE TABLE IF NOT EXISTS organization_responsible (
     id SERIAL PRIMARY KEY,
     organization_id UUID REFERENCES organization(id) ON DELETE CASCADE,
     user_id INT REFERENCES employee(id) ON DELETE CASCADE
 );
 
--- Тип сервиса тендера (ENUM из 3 значений из спецификации)
-CREATE TYPE tender_service_type AS ENUM ('Construction', 'Delivery', 'Manufacture');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tender_service_type') THEN
+        CREATE TYPE tender_service_type AS ENUM ('Construction', 'Delivery', 'Manufacture');
+    END IF;
+END $$;
 
--- Статус тендера (Из спецификации --- 3 значения ENUM)
-CREATE TYPE tender_status AS ENUM ('Created', 'Published', 'Closed');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tender_status') THEN
+        CREATE TYPE tender_status AS ENUM ('Created', 'Published', 'Closed');
+    END IF;
+END $$;
 
--- Статус предложения (ENUM из 5 значений, спецификация)
-CREATE TYPE bid_status AS ENUM ('Created', 'Published', 'Canceled', 'Approved', 'Rejected');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bid_status') THEN
+        CREATE TYPE bid_status AS ENUM ('Created', 'Published', 'Canceled', 'Approved', 'Rejected');
+    END IF;
+END $$;
 
--- Тип автора предложения (организация или обычный юзер, из спецификации)
-CREATE TYPE bid_author_type AS ENUM ('Organization', 'User');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bid_author_type') THEN
+        CREATE TYPE bid_author_type AS ENUM ('Organization', 'User');
+    END IF;
+END $$;
 
--- Решение по предложению (Почему? Здесь два значения Approved и Rejected, когда они есть в статусе.)
--- Видимо, чтобы четко определить, что к чему относится
-CREATE TYPE bid_decision AS ENUM ('Approved', 'Rejected');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bid_decision') THEN
+        CREATE TYPE bid_decision AS ENUM ('Approved', 'Rejected');
+    END IF;
+END $$;
 
--- Таблица для хранения инфы о тендерах
-CREATE TABLE tenders (
+CREATE TABLE IF NOT EXISTS tenders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
@@ -55,11 +66,10 @@ CREATE TABLE tenders (
     status tender_status NOT NULL,
     organization_id UUID REFERENCES organization(id) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP  -- Поле для отслеживания обновлений
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица для хранения инфы о версиях тендеров
-CREATE TABLE tender_versions (
+CREATE TABLE IF NOT EXISTS tender_versions (
     id SERIAL PRIMARY KEY, 
     tender_id UUID REFERENCES tenders(id) ON DELETE CASCADE NOT NULL,
     version_number INT NOT NULL,
@@ -73,31 +83,27 @@ CREATE TABLE tender_versions (
     is_current BOOLEAN DEFAULT FALSE
 );
 
--- Индекс для быстрого поиска текущей версии тендера
-CREATE INDEX idx_tender_versions_current ON tender_versions(tender_id, is_current);
+CREATE INDEX IF NOT EXISTS idx_tender_versions_current ON tender_versions(tender_id, is_current);
 
--- Таблица для хранения инфы о бидах (предложениях)
-CREATE TABLE bids (
+CREATE TABLE IF NOT EXISTS bids (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500) NOT NULL,
     status bid_status NOT NULL,
-    tender_id UUID REFERENCES tenders(id) ON DELETE CASCADE NOT NULL,  -- Исправлено на tenders(id)
+    tender_id UUID REFERENCES tenders(id) ON DELETE CASCADE NOT NULL,
     author_type bid_author_type NOT NULL,
     author_id INT REFERENCES employee(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица для хранения инфы о решениях для предложений
-CREATE TABLE bid_decisions (
+CREATE TABLE IF NOT EXISTS bid_decisions (
     id SERIAL PRIMARY KEY,
     bid_id UUID REFERENCES bids(id) ON DELETE CASCADE NOT NULL,
     decision bid_decision NOT NULL
 );
 
--- Таблица для хранения инфы о всех версиях предложений
-CREATE TABLE bid_versions (
+CREATE TABLE IF NOT EXISTS bid_versions (
     id SERIAL PRIMARY KEY,
     bid_id UUID REFERENCES bids(id) ON DELETE CASCADE NOT NULL,
     version_number INT NOT NULL,
@@ -108,11 +114,9 @@ CREATE TABLE bid_versions (
     is_current BOOLEAN DEFAULT FALSE
 );
 
--- Индекс для ускорения поиска версии предложения
-CREATE INDEX idx_bid_versions_current ON bid_versions(bid_id, is_current);
+CREATE INDEX IF NOT EXISTS idx_bid_versions_current ON bid_versions(bid_id, is_current);
 
--- Таблица для хранения инфы о фидбэках по предложениям
-CREATE TABLE bid_feedbacks (
+CREATE TABLE IF NOT EXISTS bid_feedbacks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bid_id UUID REFERENCES bids(id) ON DELETE CASCADE NOT NULL,
     author_id INT REFERENCES employee(id) ON DELETE CASCADE,
