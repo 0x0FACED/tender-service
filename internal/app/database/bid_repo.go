@@ -28,7 +28,7 @@ type BidDecisionRepository interface {
 
 type BidFeedbackRepository interface {
 	// Review == feedback
-	GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) (*models.BidReview, error)
+	GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) ([]*models.BidReview, error)
 	SubmitBidFeedback(ctx context.Context, bidId repos.BidId, params repos.SubmitBidFeedbackParams) (*models.Bid, error)
 }
 
