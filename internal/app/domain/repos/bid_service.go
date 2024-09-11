@@ -59,7 +59,7 @@ type BidService interface {
 	SubmitBidDecision(ctx context.Context, bidId BidId, params SubmitBidDecisionParams) (models.Bid, error)
 	SubmitBidFeedback(ctx context.Context, bidId BidId, params SubmitBidFeedbackParams) (models.Bid, error)
 	RollbackBid(ctx context.Context, bidId BidId, version int32, params RollbackBidParams) (models.Bid, error)
-	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) (models.BidReview, error)
+	GetBidReviews(ctx context.Context, tenderId TenderId, params GetBidReviewsParams) ([]*models.BidReview, error)
 }
 
 // CreateBidParams определяет параметры для создания нового предложения.
