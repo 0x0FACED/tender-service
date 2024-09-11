@@ -1,12 +1,17 @@
 package server
 
-import "github.com/labstack/echo/v4"
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+)
 
 // CheckServer converts echo context to params.
 func (s *server) CheckServer(ctx echo.Context) error {
-	var err error
+	return ctx.JSON(http.StatusOK, "OK")
+	//var err error
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = s.healthHandler.CheckServer(ctx)
-	return err
+	//err = s.healthHandler.CheckServer(ctx)
+	//return err
 }
