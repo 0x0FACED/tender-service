@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/0x0FACED/tender-service/internal/app/domain/models"
 	"github.com/0x0FACED/tender-service/internal/app/domain/repos"
@@ -329,29 +330,274 @@ func (p *Postgres) UpdateBidStatus(ctx context.Context, bidId repos.BidId, param
 }
 
 func (p *Postgres) EditBid(ctx context.Context, bidId repos.BidId, username repos.Username, params repos.EditBidParams) (*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bid models.Bid
+	var authorId repos.BidAuthorId
+
+	// Проверяем существование бида
+	err := p.db.QueryRowContext(ctx, `SELECT id, author_id, name, description, status, tender_id, author_type, created_at FROM bids WHERE id = $1`, bidId).Scan(
+		&bid.Id, &bid.AuthorId, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorType, &bid.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("bid not found")
+		}
+		return nil, err
+	}
+
+	// Получаем id пользователя по username
+	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, username).Scan(&authorId)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Проверяем, что автор бида совпадает с пользователем
+	if bid.AuthorId != authorId {
+		return nil, fmt.Errorf("you are not the author of this bid")
+	}
+
+	// 3. Вносим изменения
+	if params.Name != nil {
+		bid.Name = *params.Name
+	}
+	if params.Description != nil {
+		bid.Description = *params.Description
+	}
+
+	_, err = p.db.ExecContext(ctx, `
+        UPDATE bids 
+        SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3`, bid.Name, bid.Description, bidId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Возвращаем обновленный bid
+	return &bid, nil
 }
 
 func (p *Postgres) GetBidsByUsername(ctx context.Context, username repos.Username) ([]*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bids []*models.Bid
+	var authorId int
+
+	// Получаем id пользователя по username
+	err := p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, username).Scan(&authorId)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Получаем все биды с этим author_id
+	rows, err := p.db.QueryContext(ctx, `SELECT id, name, description, status, tender_id, author_type, created_at FROM bids WHERE author_id = $1`, authorId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Собираем результаты
+	for rows.Next() {
+		var bid models.Bid
+		err := rows.Scan(&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorType, &bid.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		bids = append(bids, &bid)
+	}
+
+	return bids, nil
 }
 
 func (p *Postgres) GetBidByID(ctx context.Context, bidId repos.BidId) (*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bid models.Bid
+
+	// Получаем bid по ID
+	err := p.db.QueryRowContext(ctx, `SELECT id, name, description, status, tender_id, author_type, author_id, created_at FROM bids WHERE id = $1`, bidId).Scan(
+		&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorType, &bid.AuthorId, &bid.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("bid not found")
+		}
+		return nil, err
+	}
+
+	return &bid, nil
 }
 
 func (p *Postgres) SubmitBidDecision(ctx context.Context, bidId repos.BidId, params repos.SubmitBidDecisionParams) (*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bid models.Bid
+	var authorId repos.BidAuthorId
+
+	// 1. Проверяем существование бида
+	err := p.db.QueryRowContext(ctx, `SELECT id, author_id, status, tender_id FROM bids WHERE id = $1`, bidId).Scan(&bid.Id, &bid.AuthorId, &bid.Status, &bid.TenderId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("bid not found")
+		}
+		return nil, err
+	}
+
+	// 2. Проверяем, является ли пользователь автором бида
+	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.Username).Scan(&authorId)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	if bid.AuthorId != authorId {
+		return nil, fmt.Errorf("you are not the author of this bid")
+	}
+
+	// 3. Меняем статус бида
+	_, err = p.db.ExecContext(ctx, `UPDATE bids SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, params.Decision, bidId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Обновляем данные в модели
+	bid.Status = models.BidStatus(params.Decision)
+
+	return &bid, nil
 }
 
-func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) (*models.BidReview, error) {
-	panic("not implemented") // TODO: Implement
+func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) ([]*models.BidReview, error) {
+	var tenderExists bool
+	var authorId, responsibleId repos.OrganizationId
+	var reviews []*models.BidReview
+
+	// 1. Валидируем существование тендера
+	err := p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM tenders WHERE id = $1)`, tenderId).Scan(&tenderExists)
+	if err != nil {
+		return nil, err
+	}
+	if !tenderExists {
+		return nil, fmt.Errorf("tender not found")
+	}
+
+	// 2. Проверяем, существует ли author username и есть ли у него биды
+	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.AuthorUsername).Scan(&authorId)
+	if err != nil {
+		return nil, fmt.Errorf("author not found")
+	}
+
+	var hasBids bool
+	err = p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM bids WHERE author_id = $1 AND tender_id = $2)`, authorId, tenderId).Scan(&hasBids)
+	if err != nil {
+		return nil, err
+	}
+	if !hasBids {
+		return nil, fmt.Errorf("no bids found for the author")
+	}
+
+	// 3. Валидируем пользователя как ответственного за организацию и владельца тендера
+	err = p.db.QueryRowContext(ctx, `
+        SELECT o.id 
+        FROM organization_responsible r
+        JOIN tenders t ON t.organization_id = r.organization_id
+        JOIN employee e ON e.id = r.user_id
+        WHERE t.id = $1 AND e.username = $2`, tenderId, params.RequesterUsername).Scan(&responsibleId)
+	if err != nil {
+		return nil, fmt.Errorf("you are not authorized to view reviews for this tender")
+	}
+
+	// 4. Получаем список отзывов на биды
+	rows, err := p.db.QueryContext(ctx, `
+        SELECT f.id, f.description, f.created_at 
+        FROM bid_feedbacks f 
+        JOIN bids b ON b.id = f.bid_id 
+        WHERE b.author_id = $1 AND b.tender_id = $2`, authorId, tenderId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var feedback models.BidReview
+		err := rows.Scan(&feedback.Id, &feedback.Description, &feedback.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, &feedback)
+	}
+
+	return reviews, nil
 }
 
 func (p *Postgres) SubmitBidFeedback(ctx context.Context, bidId repos.BidId, params repos.SubmitBidFeedbackParams) (*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bidExists bool
+	var authorId int
+	var bid models.Bid
+
+	// 1. Валидируем существование бида
+	err := p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM bids WHERE id = $1)`, bidId).Scan(&bidExists)
+	if err != nil {
+		return nil, err
+	}
+	if !bidExists {
+		return nil, fmt.Errorf("bid not found")
+	}
+
+	// 2. Проверяем существование юзера в базе
+	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.Username).Scan(&authorId)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// 3. Оставляем отзыв
+	_, err = p.db.ExecContext(ctx, `
+        INSERT INTO bid_feedbacks (bid_id, author_id, description, created_at) 
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`, bidId, authorId, params.BidFeedback)
+	if err != nil {
+		return nil, err
+	}
+
+	// Возвращаем обновленный bid
+	err = p.db.QueryRowContext(ctx, `SELECT id, name, description, status, tender_id, author_id, created_at FROM bids WHERE id = $1`, bidId).Scan(
+		&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorId, &bid.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bid, nil
 }
 
 func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version int32, params repos.RollbackBidParams) (*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	var bidExists bool
+	var currentVersion int32
+	var bid models.Bid
+
+	// 1. Валидируем существование бида
+	err := p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM bids WHERE id = $1)`, bidId).Scan(&bidExists)
+	if err != nil {
+		return nil, err
+	}
+	if !bidExists {
+		return nil, fmt.Errorf("bid not found")
+	}
+
+	// 2. Проверяем существование версии для этого бида
+	err = p.db.QueryRowContext(ctx, `
+        SELECT version_number, name, description, status 
+        FROM bid_versions 
+        WHERE bid_id = $1 AND version_number = $2`, bidId, version).Scan(&currentVersion, &bid.Name, &bid.Description, &bid.Status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("version not found")
+		}
+		return nil, err
+	}
+
+	// 3. Откатываемся к этой версии
+	_, err = p.db.ExecContext(ctx, `
+        UPDATE bids 
+        SET name = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $4`, bid.Name, bid.Description, bid.Status, bidId)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Фиксируем новую запись как текущую версию
+	_, err = p.db.ExecContext(ctx, `
+        INSERT INTO bid_versions (bid_id, version_number, name, description, status, created_at, is_current) 
+        VALUES ($1, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM bid_versions WHERE bid_id = $1), $2, $3, $4, CURRENT_TIMESTAMP, TRUE)`,
+		bidId, bid.Name, bid.Description, bid.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bid, nil
 }
