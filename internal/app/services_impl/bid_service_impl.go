@@ -23,8 +23,8 @@ func NewBidService(db database.BidRepository) repos.BidService {
 		db: db,
 	}
 }
+
 func (b *BidServiceImpl) CreateBid(ctx context.Context, params repos.CreateBidParams) (models.Bid, error) {
-	// валидируем все поля параметров
 	if err := ValidateCreateBid(params); err != nil {
 		return models.Bid{}, err.Error()
 	}
@@ -43,44 +43,83 @@ func (b *BidServiceImpl) CreateBid(ctx context.Context, params repos.CreateBidPa
 	*/
 	bid, err := b.db.CreateBid(ctx, params)
 	if err != nil {
-		// TODO: error handling
+
 		return models.Bid{}, err
 	}
 	return *bid, nil
 }
 
 func (b *BidServiceImpl) GetUserBids(ctx context.Context, params repos.GetUserBidsParams) ([]*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateGetUserBids(params); err != nil {
+		return nil, err.Error()
+	}
+	return b.db.GetUserBids(ctx, params)
 }
 
 func (b *BidServiceImpl) GetBidsForTender(ctx context.Context, tenderId repos.TenderId, params repos.GetBidsForTenderParams) ([]*models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateGetBidsForTender(params); err != nil {
+		return nil, err.Error()
+	}
+	return b.db.GetBidsForTender(ctx, tenderId, params)
 }
 
 func (b *BidServiceImpl) GetBidStatus(ctx context.Context, bidId repos.BidId, params repos.GetBidStatusParams) (repos.BidStatus, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateGetBidStatus(params); err != nil {
+		return "", err.Error()
+	}
+	return b.db.GetBidStatus(ctx, bidId, params)
 }
 
 func (b *BidServiceImpl) UpdateBidStatus(ctx context.Context, bidId repos.BidId, params repos.UpdateBidStatusParams) (models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateUpdateBidStatus(params); err != nil {
+		return models.Bid{}, err.Error()
+	}
+	bid, err := b.db.UpdateBidStatus(ctx, bidId, params)
+	return *bid, err
 }
 
 func (b *BidServiceImpl) EditBid(ctx context.Context, bidId repos.BidId, username repos.Username, params repos.EditBidParams) (models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateEditBid(params); err != nil {
+		return models.Bid{}, err.Error()
+	}
+	bid, err := b.db.EditBid(ctx, bidId, username, params)
+	return *bid, err
 }
 
 func (b *BidServiceImpl) SubmitBidDecision(ctx context.Context, bidId repos.BidId, params repos.SubmitBidDecisionParams) (models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+
+	if err := ValidateSubmitBidDecision(params); err != nil {
+		return models.Bid{}, err.Error()
+	}
+	bid, err := b.db.SubmitBidDecision(ctx, bidId, params)
+	return *bid, err
 }
 
 func (b *BidServiceImpl) SubmitBidFeedback(ctx context.Context, bidId repos.BidId, params repos.SubmitBidFeedbackParams) (models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	if err := ValidateSubmitBidFeedback(params); err != nil {
+		return models.Bid{}, err.Error()
+	}
+	bid, err := b.db.SubmitBidFeedback(ctx, bidId, params)
+	return *bid, err
 }
 
 func (b *BidServiceImpl) RollbackBid(ctx context.Context, bidId repos.BidId, version int32, params repos.RollbackBidParams) (models.Bid, error) {
-	panic("not implemented") // TODO: Implement
+	if err := ValidateRollbackBid(params); err != nil {
+		return models.Bid{}, err.Error()
+	}
+	bid, err := b.db.RollbackBid(ctx, bidId, version, params)
+	return *bid, err
 }
 
-func (b *BidServiceImpl) GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) (models.BidReview, error) {
-	panic("not implemented") // TODO: Implement
+func (b *BidServiceImpl) GetBidReviews(ctx context.Context, tenderId repos.TenderId, params repos.GetBidReviewsParams) ([]*models.BidReview, error) {
+	if err := ValidateGetBidReviews(params); err != nil {
+		return nil, err.Error()
+	}
+	reviews, err := b.db.GetBidReviews(ctx, tenderId, params)
+	return reviews, err
 }

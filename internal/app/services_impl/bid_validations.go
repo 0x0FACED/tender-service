@@ -41,3 +41,115 @@ func ValidateCreateBid(params repos.CreateBidParams) *e.ServiceError {
 
 	return nil
 }
+
+func ValidateGetUserBids(params repos.GetUserBidsParams) *e.ServiceError {
+	if *params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateGetBidsForTender(params repos.GetBidsForTenderParams) *e.ServiceError {
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+// 'Created', 'Published', 'Canceled', 'Approved', 'Rejected'
+func ValidateGetBidStatus(params repos.GetBidStatusParams) *e.ServiceError {
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateUpdateBidStatus(params repos.UpdateBidStatusParams) *e.ServiceError {
+	if params.Status == "Created" {
+		err := e.New("already exists status", e.ErrAlreadyExistts)
+		return err
+	}
+
+	if params.Status != "Published" && params.Status != "Canceled" && params.Status != "Approved" && params.Status != "Rejected" {
+		err := e.New("unknown status", e.ErrUnknownStatus)
+		return err
+	}
+
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateEditBid(params repos.EditBidParams) *e.ServiceError {
+	if len(*params.Name) > MAX_BID_NAME_SIZE {
+		err := e.New("name length exceeded", e.ErrExceededLength)
+		return err
+	}
+
+	if len(*params.Description) > MAX_BID_DESCRIPTION_SIZE {
+		err := e.New("desc length exceeded", e.ErrExceededLength)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateSubmitBidDecision(params repos.SubmitBidDecisionParams) *e.ServiceError {
+	if params.Decision != "Approved" && params.Decision != "Rejected" {
+		err := e.New("unknown decision", e.ErrUnknownDecision)
+		return err
+	}
+
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateSubmitBidFeedback(params repos.SubmitBidFeedbackParams) *e.ServiceError {
+	if len(params.BidFeedback) > 1000 {
+		err := e.New("feedback length exceeded", e.ErrExceededLength)
+		return err
+	}
+
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateRollbackBid(params repos.RollbackBidParams) *e.ServiceError {
+	if params.Username == "" {
+		err := e.New("empty username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
+
+func ValidateGetBidReviews(params repos.GetBidReviewsParams) *e.ServiceError {
+	if params.AuthorUsername == "" {
+		err := e.New("empty author username", e.ErrEmpty)
+		return err
+	}
+
+	if params.RequesterUsername == "" {
+		err := e.New("empty requester username", e.ErrEmpty)
+		return err
+	}
+
+	return nil
+}
