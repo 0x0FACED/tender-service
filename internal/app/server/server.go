@@ -7,7 +7,9 @@ import (
 	"github.com/0x0FACED/tender-service/internal/app/database/postgres"
 	"github.com/0x0FACED/tender-service/internal/app/domain/repos"
 	servicesimpl "github.com/0x0FACED/tender-service/internal/app/services_impl"
+	"github.com/0x0FACED/tender-service/migrations"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
 )
 
@@ -48,12 +50,23 @@ func Start() error {
 	}
 
 	db := postgres.New(cfg.Database)
+	if err := db.Connect(); err != nil {
+		log.Fatalln("Cant connect to DB, err: ", err)
+	}
 
 	bidService := servicesimpl.NewBidService(db)
 	tenderService := servicesimpl.NewTenderService(db)
 	healthService := &servicesimpl.HealthServiceImpl{}
 
+	if err := migrations.Up(cfg.Database.ConnString); err != nil {
+		log.Fatalln("cant migrate up, err: ", err)
+	}
+
 	s := New(bidService, healthService, tenderService, nil, cfg.Server)
+
+	s.RegisterHandlers()
+
+	s.r.Use(middleware.Logger())
 
 	if err := s.r.Start(s.cfg.Addr); err != nil {
 		return err
