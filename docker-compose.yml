@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  tender-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tender-service
+    volumes:
+      - ./migrations:/root/migrations 
+      - ./logs:/var/log/tender-service 
+    ports:
+      - "8080:8080" 
+    depends_on:
+      - db 
+    networks:
+      - app-network
+
+  db:
+    image: postgres:13
+    container_name: tender-db
+    environment:
+      POSTGRES_USER: yourusername
+      POSTGRES_PASSWORD: yourpassword
+      POSTGRES_DB: yourdatabase
+    volumes:
+      - ./db_data:/var/lib/postgresql/data 
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
