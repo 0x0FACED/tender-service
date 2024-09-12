@@ -32,9 +32,12 @@ func (s *server) GetTenders(ctx echo.Context) error {
 	}
 
 	// валидируем запрос, делаем запросик в бд, получаем список
-	// TODO: изменить возвращаемое значение
-	_, err = s.tenderHandler.GetTenders(context.TODO(), params)
-	return err
+	tenders, err := s.tenderHandler.GetTenders(context.TODO(), params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, tenders)
 }
 
 func (s *server) GetUserTenders(ctx echo.Context) error {
@@ -58,8 +61,12 @@ func (s *server) GetUserTenders(ctx echo.Context) error {
 
 	// Получаем списко тендеров, но перед этим
 	// валидируем данные, проверяем доступ юзера к тендерам
-	_, err = s.tenderHandler.GetUserTenders(context.TODO(), params)
-	return err
+	tenders, err := s.tenderHandler.GetUserTenders(context.TODO(), params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, tenders)
 }
 
 func (s *server) CreateTender(ctx echo.Context) error {
@@ -82,13 +89,12 @@ func (s *server) CreateTender(ctx echo.Context) error {
 
 	// Валидация здесь + потом создание записи в бд, если все гуд
 	// Return структура бида + err
-	_, err = s.tenderHandler.CreateTender(context.TODO(), params)
+	tender, err := s.tenderHandler.CreateTender(context.TODO(), params)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to create bid: %s", err))
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
 	}
-
-	_, err = s.tenderHandler.CreateTender(context.TODO(), repos.CreateTenderParams{})
-	return err
+	return ctx.JSON(http.StatusOK, tender)
 }
 
 func (s *server) EditTender(ctx echo.Context) error {
@@ -101,7 +107,7 @@ func (s *server) EditTender(ctx echo.Context) error {
 	}
 
 	var username repos.Username
-	err = runtime.BindQueryParameter("form", true, false, "username", ctx.QueryParams(), &username)
+	err = runtime.BindQueryParameter("form", true, true, "username", ctx.QueryParams(), &username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
@@ -118,8 +124,12 @@ func (s *server) EditTender(ctx echo.Context) error {
 		ServiceType: requestBody.ServiceType,
 	}
 
-	_, err = s.tenderHandler.EditTender(context.TODO(), tenderId, username, params)
-	return err
+	tender, err := s.tenderHandler.EditTender(context.TODO(), tenderId, username, params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, tender)
 }
 
 func (s *server) RollbackTender(ctx echo.Context) error {
@@ -145,8 +155,12 @@ func (s *server) RollbackTender(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	_, err = s.tenderHandler.RollbackTender(context.TODO(), tenderId, version, params)
-	return err
+	tender, err := s.tenderHandler.RollbackTender(context.TODO(), tenderId, version, params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, tender)
 }
 
 func (s *server) GetTenderStatus(ctx echo.Context) error {
@@ -165,8 +179,12 @@ func (s *server) GetTenderStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	_, err = s.tenderHandler.GetTenderStatus(context.TODO(), tenderId, params)
-	return err
+	status, err := s.tenderHandler.GetTenderStatus(context.TODO(), tenderId, params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, status)
 }
 
 func (s *server) UpdateTenderStatus(ctx echo.Context) error {
@@ -190,6 +208,10 @@ func (s *server) UpdateTenderStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	_, err = s.tenderHandler.UpdateTenderStatus(context.TODO(), tenderId, params)
-	return err
+	tender, err := s.tenderHandler.UpdateTenderStatus(context.TODO(), tenderId, params)
+	if err != nil {
+		httpStatus, errResp := getStatusByError(err)
+		return ctx.JSON(httpStatus, errResp)
+	}
+	return ctx.JSON(http.StatusOK, tender)
 }
