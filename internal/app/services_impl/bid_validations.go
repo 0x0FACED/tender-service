@@ -5,7 +5,7 @@ import (
 	e "github.com/0x0FACED/tender-service/internal/app/errs"
 )
 
-func ValidateCreateBid(params repos.CreateBidParams) *e.ServiceError {
+func validateCreateBid(params repos.CreateBidParams) *e.ServiceError {
 	// Проверяем длину имена, если вдруг > 100
 	if len(*params.Name) > MAX_BID_NAME_SIZE {
 		err := e.New("name length exceeded", e.ErrExceededLength)
@@ -42,7 +42,7 @@ func ValidateCreateBid(params repos.CreateBidParams) *e.ServiceError {
 	return nil
 }
 
-func ValidateGetUserBids(params repos.GetUserBidsParams) *e.ServiceError {
+func validateGetUserBids(params repos.GetUserBidsParams) *e.ServiceError {
 	if *params.Username == "" {
 		err := e.New("empty username", e.ErrEmpty)
 		return err
@@ -51,7 +51,7 @@ func ValidateGetUserBids(params repos.GetUserBidsParams) *e.ServiceError {
 	return nil
 }
 
-func ValidateGetBidsForTender(params repos.GetBidsForTenderParams) *e.ServiceError {
+func validateGetBidsForTender(params repos.GetBidsForTenderParams) *e.ServiceError {
 	if params.Username == "" {
 		err := e.New("empty username", e.ErrEmpty)
 		return err
@@ -61,7 +61,7 @@ func ValidateGetBidsForTender(params repos.GetBidsForTenderParams) *e.ServiceErr
 }
 
 // 'Created', 'Published', 'Canceled', 'Approved', 'Rejected'
-func ValidateGetBidStatus(params repos.GetBidStatusParams) *e.ServiceError {
+func validateGetBidStatus(params repos.GetBidStatusParams) *e.ServiceError {
 	if params.Username == "" {
 		err := e.New("empty username", e.ErrEmpty)
 		return err
@@ -70,9 +70,9 @@ func ValidateGetBidStatus(params repos.GetBidStatusParams) *e.ServiceError {
 	return nil
 }
 
-func ValidateUpdateBidStatus(params repos.UpdateBidStatusParams) *e.ServiceError {
+func validateUpdateBidStatus(params repos.UpdateBidStatusParams) *e.ServiceError {
 	if params.Status == "Created" {
-		err := e.New("already exists status", e.ErrAlreadyExistts)
+		err := e.New("already exists status", e.ErrAlreadyExists)
 		return err
 	}
 
@@ -89,7 +89,7 @@ func ValidateUpdateBidStatus(params repos.UpdateBidStatusParams) *e.ServiceError
 	return nil
 }
 
-func ValidateEditBid(params repos.EditBidParams) *e.ServiceError {
+func validateEditBid(params repos.EditBidParams) *e.ServiceError {
 	if len(*params.Name) > MAX_BID_NAME_SIZE {
 		err := e.New("name length exceeded", e.ErrExceededLength)
 		return err
@@ -103,7 +103,7 @@ func ValidateEditBid(params repos.EditBidParams) *e.ServiceError {
 	return nil
 }
 
-func ValidateSubmitBidDecision(params repos.SubmitBidDecisionParams) *e.ServiceError {
+func validateSubmitBidDecision(params repos.SubmitBidDecisionParams) *e.ServiceError {
 	if params.Decision != "Approved" && params.Decision != "Rejected" {
 		err := e.New("unknown decision", e.ErrUnknownDecision)
 		return err
@@ -117,7 +117,7 @@ func ValidateSubmitBidDecision(params repos.SubmitBidDecisionParams) *e.ServiceE
 	return nil
 }
 
-func ValidateSubmitBidFeedback(params repos.SubmitBidFeedbackParams) *e.ServiceError {
+func validateSubmitBidFeedback(params repos.SubmitBidFeedbackParams) *e.ServiceError {
 	if len(params.BidFeedback) > 1000 {
 		err := e.New("feedback length exceeded", e.ErrExceededLength)
 		return err
@@ -131,7 +131,7 @@ func ValidateSubmitBidFeedback(params repos.SubmitBidFeedbackParams) *e.ServiceE
 	return nil
 }
 
-func ValidateRollbackBid(params repos.RollbackBidParams) *e.ServiceError {
+func validateRollbackBid(params repos.RollbackBidParams) *e.ServiceError {
 	if params.Username == "" {
 		err := e.New("empty username", e.ErrEmpty)
 		return err
@@ -140,7 +140,7 @@ func ValidateRollbackBid(params repos.RollbackBidParams) *e.ServiceError {
 	return nil
 }
 
-func ValidateGetBidReviews(params repos.GetBidReviewsParams) *e.ServiceError {
+func validateGetBidReviews(params repos.GetBidReviewsParams) *e.ServiceError {
 	if params.AuthorUsername == "" {
 		err := e.New("empty author username", e.ErrEmpty)
 		return err
