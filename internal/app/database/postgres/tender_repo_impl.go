@@ -9,14 +9,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// Получение списка тендеров
 func (p *Postgres) GetTenders(ctx context.Context, params repos.GetTendersParams) ([]*models.Tender, error) {
 	var tenders []*models.Tender
 
-	// Разыменование указателя и преобразование в нужный формат
-	serviceTypes := *params.ServiceType // разыменовываем указатель
+	serviceTypes := *params.ServiceType
 
-	// Преобразуем в строку, если нужно, и используем pq.Array
+	// Преобразуем в строку и используем pq.Array дальше
 	query := `
 		SELECT id, name, description, service_type, status, organization_id, created_at
 		FROM tenders
@@ -30,7 +28,6 @@ func (p *Postgres) GetTenders(ctx context.Context, params repos.GetTendersParams
 		return nil, err
 	}
 	defer rows.Close()
-	// 2. Читаем результат и заполняем список тендеров
 	for rows.Next() {
 		var tender models.Tender
 		err := rows.Scan(&tender.Id, &tender.Name, &tender.Description, &tender.ServiceType, &tender.Status, &tender.OrganizationId, &tender.CreatedAt)
@@ -58,7 +55,6 @@ func (p *Postgres) GetUserTenders(ctx context.Context, params repos.GetUserTende
 	var tenders []*models.Tender
 	var organizationId string
 
-	// 1. Валидация пользователя: проверка, существует ли пользователь
 	id, err := p.GetUserIDByUsername(ctx, *params.Username)
 	if id == -1 {
 		p.logger.Error("User not found", zap.Error(err))
@@ -69,7 +65,6 @@ func (p *Postgres) GetUserTenders(ctx context.Context, params repos.GetUserTende
 		return nil, err
 	}
 
-	// 2. Проверка, является ли пользователь ответственным за организацию
 	err = p.db.QueryRowContext(ctx, `
         SELECT r.organization_id
         FROM organization_responsible r
@@ -80,7 +75,6 @@ func (p *Postgres) GetUserTenders(ctx context.Context, params repos.GetUserTende
 		return nil, ErrUserNotAllowed
 	}
 
-	// 3. Получаем тендеры организации
 	query := `
         SELECT id, name, description, service_type, status, organization_id, created_at
         FROM tenders
@@ -94,7 +88,6 @@ func (p *Postgres) GetUserTenders(ctx context.Context, params repos.GetUserTende
 	}
 	defer rows.Close()
 
-	// 4. Читаем результат и заполняем список тендеров
 	for rows.Next() {
 		var tender models.Tender
 		err := rows.Scan(&tender.Id, &tender.Name, &tender.Description, &tender.ServiceType, &tender.Status, &tender.OrganizationId, &tender.CreatedAt)
@@ -118,16 +111,13 @@ func (p *Postgres) GetUserTenders(ctx context.Context, params repos.GetUserTende
 	return tenders, nil
 }
 
-// Создание нового тендера
 func (p *Postgres) CreateTender(ctx context.Context, params repos.CreateTenderParams) (*models.Tender, error) {
-	// Начинаем транзакцию
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		p.logger.Error("Error begin tx", zap.Error(err))
 		return nil, err
 	}
 
-	// Если что-то пойдет не так, откатываем транзакцию
 	defer func() {
 		if err != nil {
 			tx.Rollback()
@@ -137,7 +127,7 @@ func (p *Postgres) CreateTender(ctx context.Context, params repos.CreateTenderPa
 	var organizationId string
 	var tender models.Tender
 
-	// 1. Проверяем, что CreatorUsername является ответственным за организацию
+	// Проверяем, что creator username является ответственным за организацию
 	err = tx.QueryRowContext(ctx, `
         SELECT r.organization_id
         FROM organization_responsible r
@@ -148,7 +138,11 @@ func (p *Postgres) CreateTender(ctx context.Context, params repos.CreateTenderPa
 		return nil, ErrUserNotAllowed
 	}
 
-	// 2. Создаем тендер
+	if *params.OrganizationID != organizationId {
+		p.logger.Error("Not allowed")
+		return nil, ErrUserNotAllowed
+	}
+
 	err = tx.QueryRowContext(ctx, `
     	INSERT INTO tenders (name, description, service_type, status, organization_id, created_at)
     	VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
@@ -160,7 +154,6 @@ func (p *Postgres) CreateTender(ctx context.Context, params repos.CreateTenderPa
 		return nil, err
 	}
 
-	// 3. Записываем версию тендера в таблицу tender_versions
 	var version repos.TenderVersion
 	err = tx.QueryRowContext(ctx, `
     	INSERT INTO tender_versions (tender_id, version_number, name, description, service_type, status, organization_id, created_at, is_current)
@@ -172,38 +165,33 @@ func (p *Postgres) CreateTender(ctx context.Context, params repos.CreateTenderPa
 		return nil, err
 	}
 
-	// 4. Фиксируем транзакцию, если все прошло успешно
 	err = tx.Commit()
 	if err != nil {
 		p.logger.Error("Error commit tx", zap.Error(err))
 		return nil, err
 	}
 
-	// 5. Добавляем версию в объект тендера и возвращаем его
 	tender.Version = version
 	return &tender, nil
 }
 
-// Редактирование тендера
 func (p *Postgres) EditTender(ctx context.Context, tenderId repos.TenderId, username repos.Username, params repos.EditTenderParams) (*models.Tender, error) {
 	var organizationId string
 	var tender models.Tender
 
-	// Начинаем транзакцию
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		p.logger.Error("Error begin tx", zap.Error(err))
 		return nil, err
 	}
 
-	// Если что-то пойдет не так, откатываем транзакцию
 	defer func() {
 		if err != nil {
 			tx.Rollback()
 		}
 	}()
 
-	// 1. Валидируем пользователя: существует ли и является ли ответственным за организацию
+	// Валидируем пользователя: существует ли и является ли ответственным за организацию
 	err = tx.QueryRowContext(ctx, `
         SELECT r.organization_id
         FROM organization_responsible r
@@ -214,7 +202,6 @@ func (p *Postgres) EditTender(ctx context.Context, tenderId repos.TenderId, user
 		return nil, ErrUserNotAllowed
 	}
 
-	// 2. Обновляем тендер
 	err = tx.QueryRowContext(ctx, `
         UPDATE tenders
         SET name = $1, description = $2, service_type = $3, updated_at = CURRENT_TIMESTAMP
@@ -239,7 +226,6 @@ func (p *Postgres) EditTender(ctx context.Context, tenderId repos.TenderId, user
 
 	tender.Version = currentVersion
 
-	// 3. Записываем новую версию тендера в таблицу tender_versions
 	_, err = tx.ExecContext(ctx, `
         INSERT INTO tender_versions (tender_id, version_number, name, description, service_type, status, organization_id, created_at, updated_at, is_current)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, TRUE)`,
@@ -249,19 +235,16 @@ func (p *Postgres) EditTender(ctx context.Context, tenderId repos.TenderId, user
 		return nil, err
 	}
 
-	// 4. Если все прошло успешно, фиксируем транзакцию
 	err = tx.Commit()
 	if err != nil {
 		p.logger.Error("Error commit tx", zap.Error(err))
 		return nil, err
 	}
 
-	// 5. Возвращаем обновленный тендер
 	return &tender, nil
 }
 
 func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, version int32, params repos.RollbackTenderParams) (*models.Tender, error) {
-	// Начинаем транзакцию
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		p.logger.Error("Error begin tx", zap.Error(err))
@@ -277,7 +260,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 	var tender models.Tender
 	var organizationId string
 
-	// 1. Проверяем, существует ли пользователь и является ли он ответственным за организацию
 	err = tx.QueryRowContext(ctx, `
         SELECT r.organization_id
         FROM organization_responsible r
@@ -288,7 +270,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, ErrUserNotAllowed
 	}
 
-	// 2. Проверяем наличие тендера
 	var exists bool
 	err = tx.QueryRowContext(ctx, `
         SELECT EXISTS(SELECT 1 FROM tenders WHERE id = $1 AND organization_id = $2)`, tenderId, organizationId).Scan(&exists)
@@ -297,7 +278,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, ErrTenderNotFound
 	}
 
-	// 3. Получаем тендер нужной версии из tender_versions
 	err = tx.QueryRowContext(ctx, `
         SELECT tender_id, name, description, service_type, status, organization_id, created_at
         FROM tender_versions
@@ -308,7 +288,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, ErrVersionNotFound
 	}
 
-	// 4. Обновляем флаг is_current для текущей версии на false
 	_, err = tx.ExecContext(ctx, `
         UPDATE tender_versions
         SET is_current = FALSE
@@ -318,7 +297,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, err
 	}
 
-	// 5. Получаем текущую версию, чтобы вычислить новую версию
 	var currentVersion int32
 	err = tx.QueryRowContext(ctx, `
         SELECT COALESCE(MAX(version_number), 0)
@@ -329,7 +307,6 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, err
 	}
 
-	// 6. Вставляем новую версию в tender_versions с номером на +1 от текущей версии
 	newVersion := currentVersion + 1
 	_, err = tx.ExecContext(ctx, `
         INSERT INTO tender_versions (tender_id, version_number, name, description, service_type, status, organization_id, created_at, updated_at, is_current)
@@ -340,23 +317,19 @@ func (p *Postgres) RollbackTender(ctx context.Context, tenderId repos.TenderId, 
 		return nil, err
 	}
 
-	// 7. Фиксируем транзакцию
 	err = tx.Commit()
 	if err != nil {
 		p.logger.Error("Error commit tx", zap.Error(err))
 		return nil, err
 	}
 
-	// 8. Возвращаем тендер с новой версией
 	tender.Version = newVersion
 	return &tender, nil
 }
 
-// Получение текущего статуса тендера
 func (p *Postgres) GetTenderStatus(ctx context.Context, tenderId repos.TenderId, params repos.GetTenderStatusParams) (repos.TenderStatus, error) {
 	var status repos.TenderStatus
 
-	// 1. Валидируем пользователя: является ли он ответственным за организацию
 	var organizationId string
 	err := p.db.QueryRowContext(ctx, `
         SELECT r.organization_id
@@ -368,7 +341,6 @@ func (p *Postgres) GetTenderStatus(ctx context.Context, tenderId repos.TenderId,
 		return "", ErrUserNotAllowed
 	}
 
-	// 2. Проверяем наличие тендера и получаем его статус
 	err = p.db.QueryRowContext(ctx, `
         SELECT status
         FROM tenders
@@ -378,15 +350,12 @@ func (p *Postgres) GetTenderStatus(ctx context.Context, tenderId repos.TenderId,
 		return "", ErrTenderNotFound
 	}
 
-	// 3. Возвращаем статус тендера
 	return status, nil
 }
 
-// Изменение статуса тендера
 func (p *Postgres) UpdateTenderStatus(ctx context.Context, tenderId repos.TenderId, params repos.UpdateTenderStatusParams) (*models.Tender, error) {
 	var tender models.Tender
 
-	// 1. Проверяем, является ли пользователь ответственным за организацию
 	var organizationId string
 	err := p.db.QueryRowContext(ctx, `
         SELECT r.organization_id
@@ -398,7 +367,6 @@ func (p *Postgres) UpdateTenderStatus(ctx context.Context, tenderId repos.Tender
 		return nil, ErrUserNotAllowed
 	}
 
-	// 2. Обновляем статус тендера
 	err = p.db.QueryRowContext(ctx, `
         UPDATE tenders
         SET status = $1, updated_at = CURRENT_TIMESTAMP
@@ -411,14 +379,23 @@ func (p *Postgres) UpdateTenderStatus(ctx context.Context, tenderId repos.Tender
 		return nil, err
 	}
 
-	// 3. Возвращаем обновленный тендер
+	var currentVersion int32
+	err = p.db.QueryRowContext(ctx, `
+        SELECT COALESCE(MAX(version_number), 0)
+        FROM tender_versions
+        WHERE tender_id = $1`, tenderId).Scan(&currentVersion)
+	if err != nil {
+		p.logger.Error("Error get current version number", zap.Error(err))
+		return nil, err
+	}
+
+	tender.Version = currentVersion
 	return &tender, nil
 }
 
 func (p *Postgres) GetTenderByID(ctx context.Context, tenderId repos.TenderId) (*models.Tender, error) {
 	var tender models.Tender
 
-	// 1. Получаем тендер по ID
 	err := p.db.QueryRowContext(ctx, `
         SELECT id, name, description, service_type, status, organization_id, created_at, version
         FROM tenders
