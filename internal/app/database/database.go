@@ -6,4 +6,6 @@ type Database interface {
 	BidRepository
 	TenderRepository
 	UserRepository
+
+	HealthRepository
 }
