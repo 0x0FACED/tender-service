@@ -63,7 +63,7 @@ func Start() error {
 
 	bidService := servicesimpl.NewBidService(db)
 	tenderService := servicesimpl.NewTenderService(db)
-	healthService := &servicesimpl.HealthServiceImpl{}
+	healthService := servicesimpl.NewHealthService(db)
 
 	if err := migrations.Up(cfg.Database.ConnString); err != nil {
 		l.Fatal("cant migrate up", zap.Error(err))
