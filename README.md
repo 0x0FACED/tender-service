@@ -19,23 +19,23 @@
   - [Слой API](#слой-api)
   - [Запуск](#запуск)
   - [Тестирование](#тестирование)
-    - [GET api/ping](#get-apiping)
-    - [POST api/tenders/new](#post-apitendersnew)
-    - [GET api/tenders/my](#get-apitendersmy)
-    - [GET api/tenders/:tenderId/status](#get-apitenderstenderidstatus)
-    - [PUT api/tenders/:tenderId/status](#put-apitenderstenderidstatus)
-    - [PATCH api/tenders/:tenderId/edit](#patch-apitenderstenderidedit)
-    - [PUT api/tenders/:tenderId/rollback/:version](#put-apitenderstenderidrollbackversion)
-    - [POST api/bids/new](#post-apibidsnew)
-    - [GET api/bids/my](#get-apibidsmy)
-    - [GET api/bids/:tenderId/list](#get-apibidstenderidlist)
-    - [GET api/bids/:bidId/status](#get-apibidsbididstatus)
-    - [PUT api/bids/:bidId/status](#put-apibidsbididstatus)
-    - [PATCH api/bids/:bidId/edit](#patch-apibidsbididedit)
-    - [PUT api/bids/:bidId/sumbit\_decision](#put-apibidsbididsumbit_decision)
-    - [PUT api/bids/:bidId/feedback](#put-apibidsbididfeedback)
-    - [PUT api/bids/:bidId/rollback/:version](#put-apibidsbididrollbackversion)
-    - [GET api/bids/:tenderId/reviews](#get-apibidstenderidreviews)
+    - [GET /api/ping](#get-apiping)
+    - [POST /api/tenders/new](#post-apitendersnew)
+    - [GET /api/tenders/my](#get-apitendersmy)
+    - [GET /api/tenders/:tenderId/status](#get-apitenderstenderidstatus)
+    - [PUT /api/tenders/:tenderId/status](#put-apitenderstenderidstatus)
+    - [PATCH /api/tenders/:tenderId/edit](#patch-apitenderstenderidedit)
+    - [PUT /api/tenders/:tenderId/rollback/:version](#put-apitenderstenderidrollbackversion)
+    - [POST /api/bids/new](#post-apibidsnew)
+    - [GET /api/bids/my](#get-apibidsmy)
+    - [GET /api/bids/:tenderId/list](#get-apibidstenderidlist)
+    - [GET /api/bids/:bidId/status](#get-apibidsbididstatus)
+    - [PUT /api/bids/:bidId/status](#put-apibidsbididstatus)
+    - [PATCH /api/bids/:bidId/edit](#patch-apibidsbididedit)
+    - [PUT /api/bids/:bidId/sumbit\_decision](#put-apibidsbididsumbit_decision)
+    - [PUT /api/bids/:bidId/feedback](#put-apibidsbididfeedback)
+    - [PUT /api/bids/:bidId/rollback/:version](#put-apibidsbididrollbackversion)
+    - [GET /api/bids/:tenderId/reviews](#get-apibidstenderidreviews)
   - [Использованные технологии](#использованные-технологии)
   - [Вывод](#вывод)
 
@@ -200,7 +200,7 @@ sudo docker-compose up -d
 
 ## Тестирование
 
-### GET api/ping
+### GET /api/ping
 
 Я не дождался ответа по почте, где я интересовался, а стоит ли пинговать дополнительно базу данных. Решил, что было бы неплоохо проверять, работает ли база данных, принимает ли она запросы, поэтому такая проверка была добавлена.
 
@@ -214,7 +214,7 @@ sudo docker-compose up -d
 
 *Все дальнейшие запросы будут выполняться к серверу, в базе данных которого нет данных, кроме тех, которые применяются во второй миграции.*
 
-### POST api/tenders/new
+### POST /api/tenders/new
 
 Начнем с создания тендера.
 
@@ -226,7 +226,7 @@ sudo docker-compose up -d
 
 ![api/tenders/new_fail](resources/tender_new_err.png)
 
-### GET api/tenders/my
+### GET /api/tenders/my
 
 Создадим еще несколько тендеров и попытаемся их получить в ответе:
 
@@ -236,7 +236,7 @@ sudo docker-compose up -d
 
 ![api/tenders/my_null](resources/tenders_my_null.png)
 
-### GET api/tenders/:tenderId/status
+### GET /api/tenders/:tenderId/status
 
 Просто получаем статус тендера. Ничего больше.
 
@@ -244,19 +244,19 @@ sudo docker-compose up -d
 
 Если мы изменим `username`, то будет ответ, что такой тендер не найден, потому что проверяется причастность к созданию тендера по username, а точнее по ответственному за организацию.
 
-### PUT api/tenders/:tenderId/status
+### PUT /api/tenders/:tenderId/status
 
 Изменяем статус и возращаем обновленный тендер.
 
 ![api/tenders/:tenderId/status](resources/tenders_put_status.png)
 
-### PATCH api/tenders/:tenderId/edit
+### PATCH /api/tenders/:tenderId/edit
 
 Передаем в теле запроса новые имя, описание и `serviceType`.
 
 ![api/tenders/:tenderId/edit](resources/tenders_edit.png)
 
-### PUT api/tenders/:tenderId/rollback/:version
+### PUT /api/tenders/:tenderId/rollback/:version
 
 Перед тем как сделать rollback, сделаем еще несколько изменений тендера, который был приведен в предыдущем пункте.
 
@@ -270,21 +270,21 @@ sudo docker-compose up -d
 
 В спецификации указано, что такой откат - новая версия, следовательно теперь последняя версия под номером 6.
 
-### POST api/bids/new
+### POST /api/bids/new
 
 Создавать предложения можно только к существующим тендерам.
 
 ![api/bids/new](resources/bids_new.png)
 
-### GET api/bids/my
+### GET /api/bids/my
 
 ![api/bids/my](resources/bids_my.png)
 
-### GET api/bids/:tenderId/list
+### GET /api/bids/:tenderId/list
 
 ![api/bids/:tenderId/list](resources/bids_list.png)
 
-### GET api/bids/:bidId/status
+### GET /api/bids/:bidId/status
 
 Просто получаем статус бида :D
 
@@ -292,35 +292,35 @@ sudo docker-compose up -d
 
 *Важно: этот запрос был выполнен после апдейта статуса.*
 
-### PUT api/bids/:bidId/status
+### PUT /api/bids/:bidId/status
 
 Меняем статус бида.
 
 ![api/bids/:bidId/status](resources/bids_put_status.png)
 
-### PATCH api/bids/:bidId/edit
+### PATCH /api/bids/:bidId/edit
 
 Редактировать бид может только его создатель.
 
 ![api/bids/:bidId/edit](resources/bids_edit.png)
 
-### PUT api/bids/:bidId/sumbit_decision
+### PUT /api/bids/:bidId/sumbit_decision
 
 Принятие решение - инкремент версии. 
 
 ![api/bids/:bidId/submit_decision](resources/bids_submit_decision.png)
 
-### PUT api/bids/:bidId/feedback
+### PUT /api/bids/:bidId/feedback
 
 ![api/bids/:bidId/feedback](resources/bids_feedback.png)
 
 ![bid_feedbacks](resources/bid_feedbacks.png)
 
-### PUT api/bids/:bidId/rollback/:version
+### PUT /api/bids/:bidId/rollback/:version
 
 По аналогии с роллбэком у тендера работает.
 
-### GET api/bids/:tenderId/reviews
+### GET /api/bids/:tenderId/reviews
 
 ![api/bids/:tenderId/feedback](resources/bids_reviews.png)
 
