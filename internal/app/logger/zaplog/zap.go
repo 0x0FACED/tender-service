@@ -1,6 +1,7 @@
 package zaplog
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -64,18 +65,47 @@ func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("[2006-01-02 | 15:04:05]"))
 }
 
-func (z *ZapLogger) Info(wrappedMsg string, fields ...zap.Field) {
-	z.log.Info("[MSG]: "+wrappedMsg, fields...)
+func convertAnyToZapFields(fields ...any) ([]zapcore.Field, error) {
+	flds := make([]zapcore.Field, 0, len(fields))
+	for _, f := range fields {
+		switch v := f.(type) {
+		case zapcore.Field:
+			flds = append(flds, v)
+		default:
+			return nil, fmt.Errorf("unexpected type: %T, expected zapcore.Field", v)
+		}
+	}
+	return flds, nil
 }
 
-func (z *ZapLogger) Debug(wrappedMsg string, fields ...zap.Field) {
-	z.log.Debug("[MSG]: "+wrappedMsg, fields...)
+func (z *ZapLogger) Info(wrappedMsg string, fields ...any) {
+	flds, err := convertAnyToZapFields(fields...)
+	if err != nil {
+		z.log.Panic("cannot convert", zap.Error(err))
+	}
+	z.log.Info("[MSG]: "+wrappedMsg, flds...)
 }
 
-func (z *ZapLogger) Error(wrappedMsg string, fields ...zap.Field) {
-	z.log.Error("[MSG]: "+wrappedMsg, fields...)
+func (z *ZapLogger) Debug(wrappedMsg string, fields ...any) {
+	flds, err := convertAnyToZapFields(fields...)
+	if err != nil {
+		z.log.Panic("cannot convert", zap.Error(err))
+	}
+	z.log.Debug("[MSG]: "+wrappedMsg, flds...)
 }
 
-func (z *ZapLogger) Fatal(wrappedMsg string, fields ...zap.Field) {
-	z.log.Fatal("[MSG]: "+wrappedMsg, fields...)
+func (z *ZapLogger) Error(wrappedMsg string, fields ...any) {
+	flds, err := convertAnyToZapFields(fields...)
+	if err != nil {
+		z.log.Panic("cannot convert", zap.Error(err))
+	}
+	z.log.Error("[MSG]: "+wrappedMsg, flds...)
+}
+
+func (z *ZapLogger) Fatal(wrappedMsg string, fields ...any) {
+	flds, err := convertAnyToZapFields(fields...)
+	if err != nil {
+		z.log.Panic("cannot convert", zap.Error(err))
+	}
+	z.log.Fatal("[MSG]: "+wrappedMsg, flds...)
 }
