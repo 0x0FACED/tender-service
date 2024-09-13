@@ -1,4 +1,4 @@
-# Tender Managemant API
+# Tender Management API
 
 Этот репозиторий содержит опиcание написанного API в рамках тестового задания на стажировку в компанию "Авито" на позицию backend разработчика.
 
@@ -6,7 +6,7 @@
 
 # Table Of Contents
 
-- [Tender Managemant API](#tender-managemant-api)
+- [Tender Management API](#tender-management-api)
 - [Table Of Contents](#table-of-contents)
   - [Описание задания](#описание-задания)
   - [Проектирование базы данных](#проектирование-базы-данных)
@@ -36,7 +36,7 @@
     - [PUT api/bids/:bidId/feedback](#put-apibidsbididfeedback)
     - [PUT api/bids/:bidId/rollback/:version](#put-apibidsbididrollbackversion)
     - [GET api/bids/:tenderId/reviews](#get-apibidstenderidreviews)
-  - [Использованные технологии:](#использованные-технологии)
+  - [Использованные технологии](#использованные-технологии)
   - [Вывод](#вывод)
 
 
@@ -326,7 +326,7 @@ sudo docker-compose up -d
 
 Не работает, так как я допустил ошибку при проектировании базы данных. Надо было добавить поле `bid_id` в `bid_feedbacks`, чтобы можно было связать отзывы и предложения, чего я не сделал, увы, а сил и времени уже нет.
 
-## Использованные технологии:
+## Использованные технологии
 
 1. [golang-migrate](https://github.com/golang-migrate/migrate)
 2. [godotenv](https://github.com/joho/godotenv)
