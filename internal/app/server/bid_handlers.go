@@ -13,7 +13,6 @@ import (
 func (s *server) GetUserBids(ctx echo.Context) error {
 	var err error
 
-	// default params
 	defaultLimit := int32(10)
 	defaultOffset := int32(0)
 	defaultUsername := ""
@@ -79,16 +78,14 @@ func (s *server) CreateBid(ctx echo.Context) error {
 func (s *server) EditBid(ctx echo.Context) error {
 	var err error
 
-	// Извлечение параметра пути
 	var bidId repos.BidId
 	err = runtime.BindStyledParameterWithLocation("simple", false, "bidId", runtime.ParamLocationPath, ctx.Param("bidId"), &bidId)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter bidId: %s", err))
 	}
 
-	// Извлечение параметра запроса
 	var username repos.Username
-	err = runtime.BindQueryParameter("form", true, false, "username", ctx.QueryParams(), &username)
+	err = runtime.BindQueryParameter("form", true, true, "username", ctx.QueryParams(), &username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
@@ -99,13 +96,11 @@ func (s *server) EditBid(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid request body: %s", err))
 	}
 
-	// Создание структуры для параметров
 	params := repos.EditBidParams{
 		Name:        requestBody.Name,
 		Description: requestBody.Description,
 	}
 
-	// Вызов метода для редактирования предложения
 	bid, err := s.bidHandler.EditBid(context.TODO(), bidId, username, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -123,16 +118,13 @@ func (s *server) SubmitBidFeedback(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter bidId: %s", err))
 	}
 
-	// Параметры для изменения предложения
 	var params repos.SubmitBidFeedbackParams
 
-	// получаем фидбек
 	err = runtime.BindQueryParameter("form", true, true, "bidFeedback", ctx.QueryParams(), &params.BidFeedback)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter bidFeedback: %s", err))
 	}
 
-	// получаем username
 	err = runtime.BindQueryParameter("form", true, true, "username", ctx.QueryParams(), &params.Username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
@@ -150,33 +142,27 @@ func (s *server) SubmitBidFeedback(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, bid)
 }
 
-// Откат версии бида с возвратом к старым значениям (значениям той версии - name и description)
 func (s *server) RollbackBid(ctx echo.Context) error {
 	var err error
 
-	// получаем bidId из path
 	var bidId repos.BidId
 	err = runtime.BindStyledParameterWithLocation("simple", false, "bidId", runtime.ParamLocationPath, ctx.Param("bidId"), &bidId)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter bidId: %s", err))
 	}
 
-	// получаем version из path
 	var version int32
 	err = runtime.BindStyledParameterWithLocation("simple", false, "version", runtime.ParamLocationPath, ctx.Param("version"), &version)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter version: %s", err))
 	}
 
-	// получаем username из query
 	var params repos.RollbackBidParams
 	err = runtime.BindQueryParameter("form", true, true, "username", ctx.QueryParams(), &params.Username)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	// валидиурем доступ юзера к версионированию
-	// делаем откат и вовзращаем bid
 	bid, err := s.bidHandler.RollbackBid(context.TODO(), bidId, version, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -185,7 +171,6 @@ func (s *server) RollbackBid(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, bid)
 }
 
-// Поулчаем статус предложения
 func (s *server) GetBidStatus(ctx echo.Context) error {
 	var err error
 	var bidId repos.BidId
@@ -202,7 +187,6 @@ func (s *server) GetBidStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	// Валидируем пользователя и возвращаем статус
 	status, err := s.bidHandler.GetBidStatus(context.TODO(), bidId, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -211,7 +195,6 @@ func (s *server) GetBidStatus(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, status)
 }
 
-// Апдейтим статус предложения
 func (s *server) UpdateBidStatus(ctx echo.Context) error {
 	var err error
 	var bidId repos.BidId
@@ -233,8 +216,6 @@ func (s *server) UpdateBidStatus(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	// здесь будем валидировать пользователя и статус
-	// далее изменяем статус
 	bid, err := s.bidHandler.UpdateBidStatus(context.TODO(), bidId, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -243,7 +224,6 @@ func (s *server) UpdateBidStatus(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, bid)
 }
 
-// Approved или Rejected
 func (s *server) SubmitBidDecision(ctx echo.Context) error {
 	var err error
 	var bidId repos.BidId
@@ -264,8 +244,6 @@ func (s *server) SubmitBidDecision(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	// валидируем данные (доступ юзера + решение, а то вдруг передадим в решении, например, "нельзя(")
-	// возвращаем бид и ошибку
 	bid, err := s.bidHandler.SubmitBidDecision(context.TODO(), bidId, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -290,7 +268,6 @@ func (s *server) GetBidsForTender(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter username: %s", err))
 	}
 
-	// Необязательные параметры
 	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
@@ -301,8 +278,6 @@ func (s *server) GetBidsForTender(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
 	}
 
-	// Список бидов, отсортированных по АЛФАВИТУ (какому алфавиту? по какому полю сортировать?)
-	// TODO: сделать возврат среза
 	bids, err := s.bidHandler.GetBidsForTender(context.TODO(), tenderId, params)
 	if err != nil {
 		httpStatus, errResp := getStatusByError(err)
@@ -311,8 +286,6 @@ func (s *server) GetBidsForTender(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, bids)
 }
 
-// Достаем все прошлые reviews по тендеру
-// TODO: отредачить, а то щас лень(
 func (s *server) GetBidReviews(ctx echo.Context) error {
 	var err error
 	var tenderId repos.TenderId
