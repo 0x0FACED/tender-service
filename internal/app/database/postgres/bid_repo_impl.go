@@ -7,6 +7,7 @@ import (
 
 	"github.com/0x0FACED/tender-service/internal/app/domain/models"
 	"github.com/0x0FACED/tender-service/internal/app/domain/repos"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	_ "github.com/lib/pq"
@@ -23,7 +24,6 @@ var (
 	ErrNotAuthor            = errors.New("not author of the bid")
 )
 
-// CreateBid создает новое предложение, если тендер и организация существуют
 func (p *Postgres) CreateBid(ctx context.Context, params repos.CreateBidParams) (*models.Bid, error) {
 	// Проверяем, существует ли тендер
 	exists, err := p.IsTenderExists(ctx, *params.TenderID)
@@ -102,7 +102,7 @@ func (p *Postgres) CreateBid(ctx context.Context, params repos.CreateBidParams) 
 		&bid.CreatedAt,
 	)
 	if err != nil {
-		p.logger.Error("Error scanning vala to bid", zap.Error(err))
+		p.logger.Error("Error scanning vals to bid", zap.Error(err))
 		return nil, err
 	}
 
@@ -112,8 +112,8 @@ func (p *Postgres) CreateBid(ctx context.Context, params repos.CreateBidParams) 
 		RETURNING version_number`
 
 	err = tx.QueryRowContext(ctx, versionQuery,
-		bid.Id, // ID созданного предложения
-		1,      // Первая версия
+		bid.Id,
+		1,
 		*params.CreatorUsername,
 		*params.Status,
 	).Scan(&bid.Version)
@@ -132,7 +132,6 @@ func (p *Postgres) CreateBid(ctx context.Context, params repos.CreateBidParams) 
 	return bid, nil
 }
 
-// GetUserBids возвращает список предложений (bids) пользователя по его username с учетом пагинации
 func (p *Postgres) GetUserBids(ctx context.Context, params repos.GetUserBidsParams) ([]*models.Bid, error) {
 	// Проверяем, существует ли пользователь с указанным username
 	userID, err := p.GetUserIDByUsername(ctx, *params.Username)
@@ -187,13 +186,12 @@ func (p *Postgres) GetUserBids(ctx context.Context, params repos.GetUserBidsPara
 	return bids, nil
 }
 
-// GetBidsForTender возвращает список предложений (bids) для указанного тендера с учетом пагинации
 func (p *Postgres) GetBidsForTender(ctx context.Context, tenderId repos.TenderId, params repos.GetBidsForTenderParams) ([]*models.Bid, error) {
 	// Проверяем, существует ли тендер с указанным tenderId
 	exists, err := p.IsTenderExists(ctx, tenderId)
 	if err != nil {
 		p.logger.Error("Error IsTenderExists()", zap.Error(err))
-		return nil, err
+		return nil, ErrTenderNotFound
 	}
 	if !exists {
 		p.logger.Error("Tender not found", zap.Any("params", params))
@@ -204,7 +202,7 @@ func (p *Postgres) GetBidsForTender(ctx context.Context, tenderId repos.TenderId
 	userID, err := p.GetUserIDByUsername(ctx, params.Username)
 	if err != nil {
 		p.logger.Error("Error GetUserIDByUsername()", zap.Error(err))
-		return nil, err
+		return nil, ErrUserNotFound
 	}
 
 	// Формируем запрос для получения списка предложений для данного тендера
@@ -212,20 +210,26 @@ func (p *Postgres) GetBidsForTender(ctx context.Context, tenderId repos.TenderId
 		SELECT b.id, b.name, b.description, b.status, b.author_type, b.author_id, b.created_at, v.version_number
 		FROM bids b
 		JOIN bid_versions v ON b.id = v.bid_id
-		WHERE b.tender_id = $1 AND b.author_id = $2 AND v.is_current = TRUE
-		LIMIT $3 OFFSET $4`
+		JOIN tenders t ON b.tender_id = t.id
+		WHERE b.tender_id = $1
+		AND (
+			b.author_id = $2
+			OR
+			t.organization_id = (SELECT organization_id FROM organization_responsible WHERE user_id = $2)
+		)
+		AND v.is_current = TRUE
+		LIMIT $3 OFFSET $4
+	`
 
-	rows, err := p.db.QueryContext(ctx, bidQuery, tenderId, userID, *params.Limit, *params.Offset)
+	rows, err := p.db.QueryContext(ctx, bidQuery, tenderId, userID, params.Limit, params.Offset)
 	if err != nil {
 		p.logger.Error("Error get list of bids for tender()", zap.Error(err))
 		return nil, err
 	}
 	defer rows.Close()
 
-	// Инициализируем срез для хранения результатов
 	var bids []*models.Bid
 
-	// Обрабатываем полученные строки
 	for rows.Next() {
 		var bid models.Bid
 		err := rows.Scan(
@@ -245,7 +249,6 @@ func (p *Postgres) GetBidsForTender(ctx context.Context, tenderId repos.TenderId
 		bids = append(bids, &bid)
 	}
 
-	// Проверяем ошибки после итерации
 	if err := rows.Err(); err != nil {
 		p.logger.Error("Error rows.Err()", zap.Error(err))
 		return nil, err
@@ -254,7 +257,6 @@ func (p *Postgres) GetBidsForTender(ctx context.Context, tenderId repos.TenderId
 	return bids, nil
 }
 
-// GetBidStatus возвращает статус предложения по bidId
 func (p *Postgres) GetBidStatus(ctx context.Context, bidId repos.BidId, params repos.GetBidStatusParams) (repos.BidStatus, error) {
 	// Проверяем, существует ли предложение с данным bidId
 	var status repos.BidStatus
@@ -268,31 +270,10 @@ func (p *Postgres) GetBidStatus(ctx context.Context, bidId repos.BidId, params r
 		return "", err
 	}
 
-	// Проверяем, существует ли пользователь и является ли он ответственным за организацию тендера
-	var orgId string
-	userCheckQuery := `
-		SELECT org.organization_id 
-		FROM organization_responsible org 
-		JOIN bids b ON org.organization_id = b.author_id
-		JOIN employee e ON e.id = org.user_id
-		WHERE e.username = $1 AND b.id = $2`
-
-	err = p.db.QueryRowContext(ctx, userCheckQuery, params.Username, bidId).Scan(&orgId)
-	if err == sql.ErrNoRows {
-		p.logger.Error("User not allowed")
-		return "", ErrUserNotAllowed
-	} else if err != nil {
-		p.logger.Error("Error user exists and check org responsible", zap.Error(err))
-		return "", err
-	}
-
-	// 3. Возвращаем статус
 	return status, nil
 }
 
-// UpdateBidStatus обновляет статус предложения по bidId
 func (p *Postgres) UpdateBidStatus(ctx context.Context, bidId repos.BidId, params repos.UpdateBidStatusParams) (*models.Bid, error) {
-	// 1. Проверяем, существует ли предложение с данным bidId
 	var currentStatus repos.BidStatus
 	query := `SELECT status FROM bids WHERE id = $1`
 	err := p.db.QueryRowContext(ctx, query, bidId).Scan(&currentStatus)
@@ -303,12 +284,13 @@ func (p *Postgres) UpdateBidStatus(ctx context.Context, bidId repos.BidId, param
 		p.logger.Error("Error get bid by id", zap.Error(err))
 		return nil, err
 	}
-	// 2. Проверяем, существует ли пользователь и является ли он ответственным за организацию тендера
-	var orgId string
+
+	var orgId uuid.UUID
 	userCheckQuery := `
 		SELECT org.organization_id 
 		FROM organization_responsible org 
-		JOIN bids b ON org.organization_id = b.author_id
+		JOIN tenders t ON org.organization_id = t.organization_id
+		JOIN bids b ON t.id = b.tender_id
 		JOIN employee e ON e.id = org.user_id
 		WHERE e.username = $1 AND b.id = $2`
 
@@ -321,10 +303,9 @@ func (p *Postgres) UpdateBidStatus(ctx context.Context, bidId repos.BidId, param
 		return nil, err
 	}
 
-	// 3. Обновляем статус предложения
 	updateQuery := `
 		UPDATE bids SET status = $1, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2 RETURNING id, name, description, status, tender_id, author_type, author_id, created_at, updated_at`
+		WHERE id = $2 RETURNING id, name, description, status, tender_id, author_type, author_id, created_at`
 
 	row := p.db.QueryRowContext(ctx, updateQuery, params.Status, bidId)
 
@@ -334,6 +315,7 @@ func (p *Postgres) UpdateBidStatus(ctx context.Context, bidId repos.BidId, param
 		&bid.Name,
 		&bid.Description,
 		&bid.Status,
+		&bid.TenderId,
 		&bid.AuthorType,
 		&bid.AuthorId,
 		&bid.CreatedAt,
@@ -371,20 +353,17 @@ func (p *Postgres) EditBid(ctx context.Context, bidId repos.BidId, username repo
 		return nil, err
 	}
 
-	// Получаем id пользователя по username
 	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, username).Scan(&authorId)
 	if err != nil {
 		p.logger.Error("User not found")
 		return nil, ErrUserNotFound
 	}
 
-	// Проверяем, что автор бида совпадает с пользователем
 	if bid.AuthorId != authorId {
 		p.logger.Error("Not author, declined")
 		return nil, ErrNotAuthor
 	}
 
-	// 3. Вносим изменения
 	if params.Name != nil {
 		bid.Name = *params.Name
 	}
@@ -397,11 +376,27 @@ func (p *Postgres) EditBid(ctx context.Context, bidId repos.BidId, username repo
         SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
         WHERE id = $3`, bid.Name, bid.Description, bidId)
 	if err != nil {
-		p.logger.Error("Error update bid", zap.Error(err))
+		p.logger.Error("Error updating bid", zap.Error(err))
 		return nil, err
 	}
 
-	// Возвращаем обновленный bid
+	var versionNumber int32
+	err = p.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version_number), 0) + 1 FROM bid_versions WHERE bid_id = $1`, bidId).Scan(&versionNumber)
+	if err != nil {
+		p.logger.Error("Error fetching bid version", zap.Error(err))
+		return nil, err
+	}
+
+	_, err = p.db.ExecContext(ctx, `
+        INSERT INTO bid_versions (bid_id, version_number, author_id, status, created_at, is_current)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, TRUE)`,
+		bidId, versionNumber, bid.AuthorId, bid.Status)
+	if err != nil {
+		p.logger.Error("Error inserting bid version", zap.Error(err))
+		return nil, err
+	}
+
+	bid.Version = versionNumber
 	return &bid, nil
 }
 
@@ -409,21 +404,18 @@ func (p *Postgres) GetBidsByUsername(ctx context.Context, username repos.Usernam
 	var bids []*models.Bid
 	var authorId int
 
-	// Получаем id пользователя по username
 	err := p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, username).Scan(&authorId)
 	if err != nil {
 		p.logger.Error("User not found")
 		return nil, ErrUserNotFound
 	}
 
-	// Получаем все биды с этим author_id
 	rows, err := p.db.QueryContext(ctx, `SELECT id, name, description, status, tender_id, author_type, created_at FROM bids WHERE author_id = $1`, authorId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	// Собираем результаты
 	for rows.Next() {
 		var bid models.Bid
 		err := rows.Scan(&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorType, &bid.CreatedAt)
@@ -440,7 +432,6 @@ func (p *Postgres) GetBidsByUsername(ctx context.Context, username repos.Usernam
 func (p *Postgres) GetBidByID(ctx context.Context, bidId repos.BidId) (*models.Bid, error) {
 	var bid models.Bid
 
-	// Получаем bid по ID
 	err := p.db.QueryRowContext(ctx, `SELECT id, name, description, status, tender_id, author_type, author_id, created_at FROM bids WHERE id = $1`, bidId).Scan(
 		&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorType, &bid.AuthorId, &bid.CreatedAt)
 	if err != nil {
@@ -456,9 +447,7 @@ func (p *Postgres) GetBidByID(ctx context.Context, bidId repos.BidId) (*models.B
 
 func (p *Postgres) SubmitBidDecision(ctx context.Context, bidId repos.BidId, params repos.SubmitBidDecisionParams) (*models.Bid, error) {
 	var bid models.Bid
-	var authorId repos.BidAuthorId
 
-	// 1. Проверяем существование бида
 	err := p.db.QueryRowContext(ctx, `SELECT id, author_id, status, tender_id FROM bids WHERE id = $1`, bidId).Scan(&bid.Id, &bid.AuthorId, &bid.Status, &bid.TenderId)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -468,26 +457,75 @@ func (p *Postgres) SubmitBidDecision(ctx context.Context, bidId repos.BidId, par
 		return nil, err
 	}
 
-	// 2. Проверяем, является ли пользователь автором бида
-	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.Username).Scan(&authorId)
+	var organizationId repos.OrganizationId
+	err = p.db.QueryRowContext(ctx, `SELECT organization_id FROM tenders WHERE id = $1`, bid.TenderId).Scan(&organizationId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			p.logger.Error("Tender not found")
+			return nil, ErrTenderNotFound
+		}
+		return nil, err
+	}
+
+	var userId repos.BidAuthorId
+	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.Username).Scan(&userId)
 	if err != nil {
 		p.logger.Error("User not found")
 		return nil, ErrUserNotFound
 	}
-	if bid.AuthorId != authorId {
-		p.logger.Error("Not author, declined")
-		return nil, ErrNotAuthor
-	}
 
-	// 3. Меняем статус бида
-	_, err = p.db.ExecContext(ctx, `UPDATE bids SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, params.Decision, bidId)
-	if err != nil {
-		p.logger.Error("Error update bit status", zap.Error(err))
+	var orgId repos.OrganizationId
+	userCheckQuery := `
+		SELECT o.organization_id
+		FROM organization_responsible o
+		JOIN employee e ON o.user_id = e.id
+		WHERE e.id = $1 AND o.organization_id = $2`
+
+	err = p.db.QueryRowContext(ctx, userCheckQuery, userId, organizationId).Scan(&orgId)
+	if err == sql.ErrNoRows {
+		p.logger.Error("User not authorized to make a decision")
+		return nil, ErrUserNotAllowed
+	} else if err != nil {
+		p.logger.Error("Error checking user authorization", zap.Error(err))
 		return nil, err
 	}
 
-	// Обновляем данные в модели
-	bid.Status = models.BidStatus(params.Decision)
+	updateQuery := `
+		UPDATE bids 
+		SET status = $1, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = $2 
+		RETURNING id, author_id, name, description, status, tender_id, author_type, created_at`
+
+	row := p.db.QueryRowContext(ctx, updateQuery, params.Decision, bidId)
+
+	err = row.Scan(
+		&bid.Id,
+		&bid.AuthorId,
+		&bid.Name,
+		&bid.Description,
+		&bid.Status,
+		&bid.TenderId,
+		&bid.AuthorType,
+		&bid.CreatedAt,
+	)
+	if err != nil {
+		p.logger.Error("Error updating bid status", zap.Error(err))
+		return nil, err
+	}
+
+	var version int32
+	insertVersionQuery := `
+		INSERT INTO bid_versions (bid_id, version_number, status) 
+		VALUES ($1, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM bid_versions WHERE bid_id = $1), $2)
+		RETURNING version_number`
+
+	err = p.db.QueryRowContext(ctx, insertVersionQuery, bidId, params.Decision).Scan(&version)
+	if err != nil {
+		p.logger.Error("Error inserting bid version", zap.Error(err))
+		return nil, err
+	}
+
+	bid.Version = version
 
 	return &bid, nil
 }
@@ -497,7 +535,6 @@ func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, p
 	var authorId, responsibleId repos.OrganizationId
 	var reviews []*models.BidReview
 
-	// 1. Валидируем существование тендера
 	err := p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM tenders WHERE id = $1)`, tenderId).Scan(&tenderExists)
 	if err != nil {
 		p.logger.Error("Error check tender exists", zap.Error(err))
@@ -508,7 +545,6 @@ func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, p
 		return nil, ErrTenderNotFound
 	}
 
-	// 2. Проверяем, существует ли author username и есть ли у него биды
 	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.AuthorUsername).Scan(&authorId)
 	if err != nil {
 		p.logger.Error("User not found")
@@ -526,7 +562,7 @@ func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, p
 		return nil, ErrNoBidsForAuthor
 	}
 
-	// 3. Валидируем пользователя как ответственного за организацию и владельца тендера
+	// Валидируем пользователя как ответственного за организацию и владельца тендера
 	err = p.db.QueryRowContext(ctx, `
         SELECT o.id 
         FROM organization_responsible r
@@ -538,7 +574,7 @@ func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, p
 		return nil, ErrUserNotAllowed
 	}
 
-	// 4. Получаем список отзывов на биды
+	// Получаем список отзывов на биды
 	rows, err := p.db.QueryContext(ctx, `
         SELECT f.id, f.description, f.created_at 
         FROM bid_feedbacks f 
@@ -565,10 +601,10 @@ func (p *Postgres) GetBidReviews(ctx context.Context, tenderId repos.TenderId, p
 
 func (p *Postgres) SubmitBidFeedback(ctx context.Context, bidId repos.BidId, params repos.SubmitBidFeedbackParams) (*models.Bid, error) {
 	var bidExists bool
-	var authorId int
+	var authorId repos.BidAuthorId
 	var bid models.Bid
+	var versionNumber int32
 
-	// 1. Валидируем существование бида
 	err := p.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM bids WHERE id = $1)`, bidId).Scan(&bidExists)
 	if err != nil {
 		p.logger.Error("Error check if bid exists", zap.Error(err))
@@ -579,14 +615,12 @@ func (p *Postgres) SubmitBidFeedback(ctx context.Context, bidId repos.BidId, par
 		return nil, ErrBidNotFound
 	}
 
-	// 2. Проверяем существование юзера в базе
 	err = p.db.QueryRowContext(ctx, `SELECT id FROM employee WHERE username = $1`, params.Username).Scan(&authorId)
 	if err != nil {
 		p.logger.Error("User not found")
 		return nil, ErrUserNotFound
 	}
 
-	// 3. Оставляем отзыв
 	_, err = p.db.ExecContext(ctx, `
         INSERT INTO bid_feedbacks (bid_id, author_id, description, created_at) 
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`, bidId, authorId, params.BidFeedback)
@@ -595,18 +629,33 @@ func (p *Postgres) SubmitBidFeedback(ctx context.Context, bidId repos.BidId, par
 		return nil, err
 	}
 
-	// Возвращаем обновленный bid
-	err = p.db.QueryRowContext(ctx, `SELECT id, name, description, status, tender_id, author_id, created_at FROM bids WHERE id = $1`, bidId).Scan(
-		&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorId, &bid.CreatedAt)
+	err = p.db.QueryRowContext(ctx, `SELECT version_number FROM bid_versions WHERE bid_id = $1 AND is_current = TRUE`, bidId).Scan(&versionNumber)
+	if err != nil {
+		p.logger.Error("Error retrieving current bid version", zap.Error(err))
+		return nil, err
+	}
+
+	_, err = p.db.ExecContext(ctx, `UPDATE bids SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`, bidId)
+	if err != nil {
+		p.logger.Error("Error update bid status", zap.Error(err))
+		return nil, err
+	}
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT id, name, description, status, tender_id, author_id, author_type, created_at
+		FROM bids WHERE id = $1`, bidId).Scan(
+		&bid.Id, &bid.Name, &bid.Description, &bid.Status, &bid.TenderId, &bid.AuthorId, &bid.AuthorType, &bid.CreatedAt)
 	if err != nil {
 		p.logger.Error("Error get updated bid", zap.Error(err))
 		return nil, err
 	}
 
+	bid.Version = versionNumber
+
 	return &bid, nil
 }
+
 func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version int32, params repos.RollbackBidParams) (*models.Bid, error) {
-	// Начинаем транзакцию
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -620,7 +669,6 @@ func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version i
 	var bidExists bool
 	var bid models.Bid
 
-	// 1. Валидируем существование бида
 	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM bids WHERE id = $1)`, bidId).Scan(&bidExists)
 	if err != nil {
 		p.logger.Error("Error check if bid exists", zap.Error(err))
@@ -631,11 +679,10 @@ func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version i
 		return nil, ErrBidNotFound
 	}
 
-	// 2. Проверяем существование нужной версии для этого бида
 	err = tx.QueryRowContext(ctx, `
-        SELECT name, description, status 
+        SELECT status 
         FROM bid_versions 
-        WHERE bid_id = $1 AND version_number = $2`, bidId, version).Scan(&bid.Name, &bid.Description, &bid.Status)
+        WHERE bid_id = $1 AND version_number = $2`, bidId, version).Scan(&bid.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			p.logger.Error("Version not found")
@@ -645,7 +692,6 @@ func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version i
 		return nil, err
 	}
 
-	// 3. Обновляем текущую запись бида до откатной версии
 	_, err = tx.ExecContext(ctx, `
         UPDATE bids 
         SET name = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP 
@@ -655,7 +701,6 @@ func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version i
 		return nil, err
 	}
 
-	// 4. Обновляем флаг is_current на false для текущей версии
 	_, err = tx.ExecContext(ctx, `
         UPDATE bid_versions
         SET is_current = FALSE
@@ -665,17 +710,19 @@ func (p *Postgres) RollbackBid(ctx context.Context, bidId repos.BidId, version i
 		return nil, err
 	}
 
-	// 5. Создаем новую версию как текущую
+	// Создаем новую версию как текущую
 	_, err = tx.ExecContext(ctx, `
-        INSERT INTO bid_versions (bid_id, version_number, name, description, status, created_at, is_current) 
-        VALUES ($1, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM bid_versions WHERE bid_id = $1), $2, $3, $4, CURRENT_TIMESTAMP, TRUE)`,
-		bidId, bid.Name, bid.Description, bid.Status)
+        INSERT INTO bid_versions (bid_id, version_number, author_id, status, created_at, is_current) 
+        VALUES ($1, 
+                (SELECT COALESCE(MAX(version_number), 0) + 1 FROM bid_versions WHERE bid_id = $1), 
+                (SELECT author_id FROM bids WHERE id = $1), 
+                $2, CURRENT_TIMESTAMP, TRUE)`,
+		bidId, bid.Status)
 	if err != nil {
 		p.logger.Error("Error creating new current version", zap.Error(err))
 		return nil, err
 	}
 
-	// Фиксируем транзакцию
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
