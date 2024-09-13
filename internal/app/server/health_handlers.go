@@ -8,10 +8,8 @@ import (
 
 // CheckServer converts echo context to params.
 func (s *server) CheckServer(ctx echo.Context) error {
+	if err := s.healthHandler.CheckServer(); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, "Database is not responding")
+	}
 	return ctx.JSON(http.StatusOK, "OK")
-	//var err error
-
-	// Invoke the callback with all the unmarshaled arguments
-	//err = s.healthHandler.CheckServer(ctx)
-	//return err
 }

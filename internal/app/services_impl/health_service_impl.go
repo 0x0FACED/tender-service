@@ -1,9 +1,20 @@
 package servicesimpl
 
 import (
-	"github.com/labstack/echo/v4"
+	"github.com/0x0FACED/tender-service/internal/app/database"
+	"github.com/0x0FACED/tender-service/internal/app/domain/repos"
 )
 
-type HealthServiceImpl struct{}
+type HealthServiceImpl struct {
+	db database.HealthRepository
+}
 
-func (h *HealthServiceImpl) CheckServer(ctx echo.Context) error { panic("impl me") }
+func NewHealthService(db database.HealthRepository) repos.HealthService {
+	return &HealthServiceImpl{
+		db: db,
+	}
+}
+
+func (h *HealthServiceImpl) CheckServer() error {
+	return h.db.PingDB()
+}
