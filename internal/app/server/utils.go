@@ -13,9 +13,7 @@ type ErrorResponse struct {
 	Reason string `json:"reason"`
 }
 
-// Функция для получения статуса и сообщения об ошибке
 func getStatusByError(err error) (int, ErrorResponse) {
-	// Ошибки, связанные с некорректными данными со стороны пользователя
 	switch err {
 	case e.ErrExceededLength:
 		return http.StatusBadRequest, ErrorResponse{Reason: "Превышена допустимая длина."}
@@ -35,7 +33,6 @@ func getStatusByError(err error) (int, ErrorResponse) {
 	case e.ErrAlreadyExists:
 		return http.StatusBadRequest, ErrorResponse{Reason: "Запись уже существует."}
 
-	// Ошибки уровня сервиса/БД
 	case p.ErrTenderNotFound:
 		return http.StatusNotFound, ErrorResponse{Reason: "Тендер не найден."}
 
