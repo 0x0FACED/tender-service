@@ -1,6 +1,5 @@
 package server
 
-// RegisterHandlers регистрирует маршруты и связывает их с обработчиками
 func (s *server) RegisterHandlers() {
 	s.r.GET("/api/bids/my", s.GetUserBids)
 	s.r.POST("/api/bids/new", s.CreateBid)
