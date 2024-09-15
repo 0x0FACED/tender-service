@@ -47,7 +47,7 @@ func New() *ZapLogger {
 	}
 
 	cEnc := zapcore.NewConsoleEncoder(config)
-	fEnc := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{})
+	fEnc := zapcore.NewConsoleEncoder(config)
 
 	core := zapcore.NewTee(
 		zapcore.NewCore(cEnc, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
