@@ -17,7 +17,8 @@
   - [Валидации](#валидации)
   - [Логгирование](#логгирование)
   - [Слой API](#слой-api)
-  - [Запуск](#запуск)
+  - [Запуск (docker-compose)](#запуск-docker-compose)
+  - [Запуск (через go run)](#запуск-через-go-run)
   - [Тестирование](#тестирование)
     - [GET /api/ping](#get-apiping)
     - [POST /api/tenders/new](#post-apitendersnew)
@@ -157,7 +158,7 @@ func (s *server) RegisterHandlers() {
 
 Все эти пути были описани в спецификации. Реализованы обработчики были в сторогом следовании спецификации.
 
-## Запуск
+## Запуск (docker-compose)
 
 Для запуска сервера необходимо наличие:
 1. Docker
@@ -181,10 +182,13 @@ SERVER_ADDRESS=localhost:8080
 POSTGRES_CONN=postgres://yourusername:yourpassword@localhost:5432/yourdatabase?sslmode=disable
 POSTGRES_USERNAME=yourusername
 POSTGRES_PASSWORD=yourpassword
-POSTGRES_HOST=localhost
+POSTGRES_HOST=db
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=yourdatabase
 ```
+
+*(`POSTGRES_HOST` зависит от названия контейнера с базой данных, изначально `db`)*
+
 4. Создаем базу данных, если ее нет и меняем данные в docker-compose файле на свои
 5. Запускаем через `docker-compose`:
 ```sh
@@ -195,6 +199,42 @@ sudo docker-compose up --build
 sudo docker-compose up -d
 ```
 Для запуска в фоновом режиме
+
+## Запуск (через go run)
+
+Для запуска не в контейнере необходимо выполнить следующее:
+
+1. Клонируем репо:
+```sh
+git clone https://github.com/0x0FACED/tender-service.git
+```
+
+2. Переходим в корневую папку проекта:
+```sh
+cd .../tender-service
+```
+
+3. Создаем `.env` файл по спецификации:
+```sh
+SERVER_ADDRESS=localhost:8080
+
+POSTGRES_CONN=postgres://yourusername:yourpassword@localhost:5432/yourdatabase?sslmode=disable
+POSTGRES_USERNAME=yourusername
+POSTGRES_PASSWORD=yourpassword
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=yourdatabase
+```
+
+4. Находясь в корневой папке проекта, выполняем команду:
+```sh
+go run cmd/app/main.go
+```
+
+Или же можно перейти в директорию `app` и выполнить:
+```sh
+go run main.go
+```
 
 *Далее будут описаны все обработчики и приведены скриншоты тестирования при помощи `Postman`.*
 
